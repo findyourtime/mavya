@@ -1,0 +1,44 @@
+# Publie le site sur GitHub Pages à chaque push.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]   # seule main a le droit de publier sur Pages
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          mkdir _site
+          cp -r *.html robots.txt sitemap.xml assets _site/
+          touch _site/.nojekyll
+          # version des CSS/JS = commit, pour forcer le rechargement après chaque déploiement
+          sed -i "s/?v=dev/?v=${GITHUB_SHA::7}/g" _site/*.html _site/assets/js/*.js
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

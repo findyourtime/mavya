@@ -1,2 +1,90 @@
-# mavya
-Site de MAVYA : rideau lumineux LED connecté pour fenêtre
+# MAVYA
+
+Site de MAVYA : rideau lumineux LED connecté à accrocher derrière une fenêtre
+(« Ta fenêtre devient un écran lumineux. »). Direction visuelle futuriste, premium et
+nocturne ; aucun visuel importé : tout est dessiné en canvas sur une grille de 20 × 20 LED.
+
+## Structure
+
+```
+index.html                 La page : hero, histoire au défilement, « Vu de la rue », fonctionnalités, tailles, commande, FAQ
+mentions-legales.html      Pages légales (même design, sans JavaScript)
+cgv.html
+confidentialite.html
+livraison-retours.html
+assets/css/main.css        Styles communs, mobile d'abord
+assets/js/led-grid.js      Moteur de la grille LED : halos, scènes animées, transitions point par point
+assets/js/patterns.js      Pixel-arts (sapin, Père Noël, cœurs) et polices lumineuses
+assets/js/main.js          Animations au défilement (GSAP + ScrollTrigger, Lenis), barre d'achat mobile
+assets/js/shop.js          Bouton d'achat Shopify (Buy Button JS v3, sans iframe, habillé par le CSS)
+assets/js/ui.js            Toutes les pages : en-tête réduit au défilement, barre de progression, retour en haut
+assets/img/                Favicon, icône iOS et image de partage (générées par tools/og-image.html)
+tools/serve.pl             Aperçu local sans Python ni Node
+tools/og-image.html        Génère l'image de partage et l'icône iOS à partir de la grille LED
+tools/publish.pl           Publie le dossier sur GitHub sans git (via GitHub CLI)
+```
+
+HTML, CSS et JS statiques, sans étape de build. Bibliothèques chargées depuis un CDN, en
+version exacte et avec empreinte d'intégrité (SRI) : GSAP 3.15.0 + ScrollTrigger (cdnjs),
+Lenis 1.3.27 et Shopify Buy Button JS 3.0.6 (unpkg, chargé seulement à l'approche de la commande).
+
+## À remplir avant la mise en ligne
+
+Tous les champs à compléter sont entre crochets :
+
+- `[ID_PRODUIT]` dans `assets/js/shop.js` (ID numérique du produit dans Shopify) ;
+- `[NOM PRÉNOM]`, `[ADRESSE]`, `[EMAIL]`, `[TÉLÉPHONE]`, `[MENTION TVA …]`, `[MÉDIATEUR]`,
+  `[ADRESSE RETOUR]`, `[en cours d'immatriculation]` dans les pages légales et le pied de page ;
+- `[DATE LIMITE]` (commande avant Noël) sur l'accueil, la FAQ, les CGV et Livraison & retours ;
+- `[DATE]` (« Dernière mise à jour », en bas de chaque page légale) : à changer à chaque modification.
+
+Pour tous les retrouver : `grep -rn "\[[A-Z]" *.html assets/js`
+
+Les prix affichés en dur (44,90 € et 54,90 €, sur l'accueil et dans les CGV) doivent rester
+identiques à ceux de Shopify ; le prix de la variante choisie, lui, vient directement de Shopify.
+
+## Aperçu local
+
+```
+perl tools/serve.pl
+```
+
+puis ouvrir http://localhost:4321/. Le mouvement réduit (réglage d'accessibilité du système)
+coupe toutes les animations : la grille affiche alors des images fixes et l'histoire devient
+une série d'onglets.
+
+## Cookies et pixel publicitaire
+
+Aujourd'hui, aucun cookie ni traceur : donc aucun bandeau. Son emplacement est prêt sur chaque
+page (`<div class="consent" id="consent" hidden>`, juste avant `</body>`), et le CSS réserve sa
+place : en donnant la hauteur du bandeau à la variable `--consent-h`, la barre d'achat et les
+boutons flottants remontent d'autant. Le jour où un pixel publicitaire est installé :
+
+- afficher le bandeau dans `#consent`, avec « Tout refuser » aussi visible que « Tout accepter » ;
+- ne charger le pixel qu'après l'accord, et retenir le choix (refus compris) ;
+- ajouter un lien « Gérer les cookies » dans le pied de page pour changer d'avis ;
+- mettre à jour `confidentialite.html`, la rubrique cookies des mentions légales et la phrase
+  « Ce site n'utilise ni cookie, ni traceur » du pied de page.
+
+## Image de partage
+
+`tools/og-image.html` dessine l'image Open Graph (1200 × 630) et l'icône iOS (180 × 180) avec
+le moteur de la grille LED. Avec `perl tools/serve.pl` lancé, ouvrir
+http://localhost:4321/tools/og-image.html et cliquer sur « Enregistrer » : les fichiers sont
+écrits dans `assets/img/`.
+
+## Mise en ligne
+
+Le site est publié sur GitHub Pages depuis le dépôt `findyourtime/mavya`, à l'adresse
+https://findyourtime.github.io/mavya/. `.github/workflows/pages.yml` le déploie à chaque commit
+sur `main` (dossier `tools/` exclu, `?v=dev` remplacé par le commit pour vider les caches).
+
+Sans git, `tools/publish.pl` envoie tout le dossier en un seul commit sur `main` grâce à
+GitHub CLI (`~/.local/bin/gh`, connecté une fois avec `gh auth login`) :
+
+```
+perl tools/publish.pl "Mentions légales complétées"
+```
+
+Avec un domaine personnalisé, mettre à jour les URL absolues (`canonical`, Open Graph,
+`sitemap.xml`, `robots.txt`) ; `robots.txt` n'est lu par les moteurs qu'à la racine d'un domaine.

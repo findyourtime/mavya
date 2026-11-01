@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Générateur d'images · MAVYA</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=Space+Grotesk:wght@600;700&display=swap">
+  <style>
+    body { margin: 0; padding: 24px; display: grid; gap: 16px; background: #05060A; color: #EEF0F7; font: 15px/1.5 Inter, system-ui, sans-serif; }
+    canvas.out { max-width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, .15); border-radius: 12px; }
+    #icon { width: 180px; }
+    .src { position: absolute; left: -9999px; top: 0; width: 520px; height: 520px; }   /* grille LED rendue hors champ, à taille fixe */
+    a, button { color: #2DE2FF; font: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Images générées depuis la grille LED</h1>
+  <p>Lance <code>perl tools/serve.pl</code>, ouvre <code>http://localhost:4321/tools/og-image.html</code> et clique sur « Enregistrer » : les fichiers sont écrits dans <code>assets/img/</code>. Sinon, télécharge-les avec les liens.</p>
+  <canvas class="out" id="og" width="1200" height="630"></canvas>
+  <canvas class="out" id="icon" width="180" height="180"></canvas>
+  <p><button id="save" type="button">Enregistrer dans assets/img</button> · <a id="dl-og" download="og-image.jpg">og-image.jpg</a> · <a id="dl-icon" download="apple-touch-icon.png">apple-touch-icon.png</a></p>
+  <p id="status" role="status"></p>
+  <canvas class="src" id="grid"></canvas>
+
+  <script type="module">
+    import { LedGrid, Pattern } from '../assets/js/led-grid.js?v=dev';
+    import { SAPIN } from '../assets/js/patterns.js?v=dev';
+
+    const NEON = ['#2DE2FF', '#8F7BFF', '#FF3DD8'];
+    const M = ['X...X', 'XX.XX', 'X.X.X', 'X...X', 'X...X'];   // le « M » en points du logo
+    const status = document.getElementById('status');
+
+    await Promise.all(['700 118px "Space Grotesk"', '600 46px "Space Grotesk"', '500 25px Inter', '600 21px Inter'].map(f => document.fonts.load(f)));
+
+    function neon(g, x0, y0, x1, y1) {
+      const grad = g.createLinearGradient(x0, y0, x1, y1);
+      NEON.forEach((c, i) => grad.addColorStop(i / (NEON.length - 1), c));
+      return grad;
+    }
+    function glow(g, w, h, x, y, r, color) {
+      const grad = g.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, color);
+      grad.addColorStop(1, 'rgba(5,6,10,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+    }
+    function logo(g, x, y, size) {   // « M » en LED, avec halo
+      const cell = size / 5;
+      g.save();
+      g.fillStyle = neon(g, x, y, x + size, y + size);
+      g.shadowColor = 'rgba(143,123,255,.85)';
+      g.shadowBlur = cell * .7;
+      M.forEach((line, r) => [...line].forEach((px, c) => {
+        if (px !== 'X') return;
+        g.beginPath();
+        g.arc(x + (c + .5) * cell, y + (r + .5) * cell, cell * .38, 0, Math.PI * 2);
+        g.fill();
+      }));
+      g.restore();
+    }
+
+    /* 1. la grille LED du site, figée sur le sapin (rendue à 2×) */
+    const src = document.getElementById('grid');
+    const grid = new LedGrid(src, { dpr: 2, shimmer: false });
+    grid.layout();
+    grid.show(new Pattern(SAPIN), { instant: true });
+    grid.draw(0);
+
+    /* 2. image de partage 1200 × 630 */
+    const og = document.getElementById('og'), g = og.getContext('2d');
+    g.fillStyle = '#05060A';
+    g.fillRect(0, 0, 1200, 630);
+    glow(g, 1200, 630, 330, 250, 430, 'rgba(45,226,255,.15)');
+    glow(g, 1200, 630, 1000, 560, 480, 'rgba(255,61,216,.14)');
+    glow(g, 1200, 630, 250, 620, 320, 'rgba(255,198,90,.07)');
+
+    const frame = new Path2D();
+    frame.roundRect(70, 55, 520, 520, 34);
+    const glass = g.createLinearGradient(0, 55, 0, 575);
+    glass.addColorStop(0, '#0B0D16');
+    glass.addColorStop(1, '#06070C');
+    g.fillStyle = glass;
+    g.fill(frame);
+    g.drawImage(src, 70, 55, 520, 520);
+    const shine = g.createLinearGradient(70, 55, 590, 575);
+    shine.addColorStop(0, 'rgba(255,255,255,.06)');
+    shine.addColorStop(.32, 'rgba(255,255,255,0)');
+    g.fillStyle = shine;
+    g.fill(frame);
+    g.strokeStyle = 'rgba(255,255,255,.12)';
+    g.lineWidth = 2;
+    g.stroke(frame);
+
+    logo(g, 664, 128, 44);
+    g.fillStyle = '#EEF0F7';
+    g.font = '700 118px "Space Grotesk"';
+    g.letterSpacing = '16px';
+    g.fillText('MAVYA', 656, 284);
+    g.letterSpacing = '0px';
+    g.font = '600 46px "Space Grotesk"';
+    g.fillText('Ta fenêtre devient', 660, 368);
+    g.fillStyle = neon(g, 660, 0, 1100, 0);
+    g.fillText('un écran lumineux.', 660, 422);
+    g.fillStyle = '#AEB3C5';
+    g.font = '500 25px Inter';
+    g.fillText('Rideau lumineux LED connecté', 660, 480);
+
+    g.font = '600 21px Inter';
+    let x = 660;
+    for (const label of ['Appli + télécommande', '16 M de couleurs', 'Livraison offerte']) {
+      const w = g.measureText(label).width + 36;
+      if (x + w > 1150) break;
+      const pill = new Path2D();
+      pill.roundRect(x, 512, w, 44, 22);
+      g.fillStyle = 'rgba(255,255,255,.05)';
+      g.fill(pill);
+      g.strokeStyle = 'rgba(255,255,255,.18)';
+      g.stroke(pill);
+      g.fillStyle = '#EEF0F7';
+      g.fillText(label, x + 18, 541);
+      x += w + 10;
+    }
+
+    /* 3. icône d'écran d'accueil iOS 180 × 180 (iOS arrondit lui-même les coins) */
+    const icon = document.getElementById('icon'), k = icon.getContext('2d');
+    k.fillStyle = '#05060A';
+    k.fillRect(0, 0, 180, 180);
+    glow(k, 180, 180, 90, 90, 110, 'rgba(143,123,255,.22)');
+    logo(k, 36, 36, 108);
+
+    /* enregistrement */
+    const blobs = await Promise.all([[og, 'image/jpeg'], [icon, 'image/png']].map(([c, type]) => new Promise(res => c.toBlob(res, type, .9))));
+    const files = { 'assets/img/og-image.jpg': blobs[0], 'assets/img/apple-touch-icon.png': blobs[1] };
+    document.getElementById('dl-og').href = URL.createObjectURL(blobs[0]);
+    document.getElementById('dl-icon').href = URL.createObjectURL(blobs[1]);
+    async function save() {
+      try {
+        for (const [path, blob] of Object.entries(files)) {
+          const res = await fetch('/__save/' + path, { method: 'POST', body: blob });
+          if (!res.ok) throw new Error(`${path} : ${res.status}`);
+        }
+        status.textContent = 'Images enregistrées dans assets/img/.';
+      } catch (err) {
+        status.textContent = 'Enregistrement impossible (' + err.message + ') : utilise les liens de téléchargement.';
+      }
+      document.body.dataset.done = '1';
+    }
+    document.getElementById('save').addEventListener('click', save);
+    if (new URLSearchParams(location.search).has('save')) save();
+    else document.body.dataset.done = '1';
+  </script>
+</body>
+</html>
