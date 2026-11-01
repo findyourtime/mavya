@@ -2,8 +2,10 @@
 
 Site de MAVYA : rideau lumineux LED connecté à accrocher derrière une fenêtre
 (« Ta fenêtre devient un écran lumineux. »). Direction visuelle futuriste, premium et
-nocturne ; aucun visuel importé : tout est dessiné en code, la grille de 20 × 20 LED en canvas
-et l'intro de l'accueil en 3D temps réel (WebGL 2, sans bibliothèque).
+nocturne. Le rideau est dessiné en code : grille de 20 × 20 LED en canvas, et rideau 3D temps
+réel (WebGL 2, sans bibliothèque) de l'intro jusqu'à la maison. Seules images importées : la
+façade de « Vu de la rue », générée par IA, de jour (`assets/img/maison.jpg`) et de nuit
+(`assets/img/maison-nuit.jpg`, retouche de la première, même cadrage).
 
 ## Structure
 
@@ -20,7 +22,8 @@ assets/js/patterns.js      Pixel-arts (sapin, Père Noël, cœurs) et polices lu
 assets/js/main.js          Animations au défilement (GSAP + ScrollTrigger, Lenis), barre d'achat mobile
 assets/js/shop.js          Bouton d'achat Shopify (Buy Button JS v3, sans iframe, habillé par le CSS)
 assets/js/ui.js            Toutes les pages : en-tête réduit au défilement, barre de progression, retour en haut
-assets/img/                Favicon, icône iOS et image de partage (générées par tools/og-image.html)
+assets/img/                Favicon, icône iOS et image de partage (générées par tools/og-image.html),
+                           maison.jpg et maison-nuit.jpg (façade de « Vu de la rue », générée par IA)
 tools/serve.pl             Aperçu local sans Python ni Node
 tools/og-image.html        Génère l'image de partage et l'icône iOS à partir de la grille LED
 tools/publish.pl           Publie le dossier sur GitHub sans git (via GitHub CLI)
@@ -58,7 +61,11 @@ est remplacée.
 
 L'intro 3D suit une timeline de 0 à 1 : le début (plan de la fenêtre, tringle) se joue seul au
 chargement, la suite avance avec le défilement ; légendes et plans de caméra sont réglés en
-tête de `intro3d.js`.
+tête de `intro3d.js`. Le rideau 3D est dessiné dans un calque fixe derrière la page : après
+l'intro, il descend se poser dans l'histoire (il y affiche les motifs des étapes, calculés par
+`LedSource` dans `led-grid.js`), puis entre dans la baie vitrée de la maison « Vu de la rue » :
+la vitre est découpée dans la photo (`clip-path`, rectangle `--win-*` dans `main.css`), et son
+reflet ne s'efface qu'à la nuit tombée. Si la photo change, remesurer ce rectangle.
 
 ## Cookies et pixel publicitaire
 

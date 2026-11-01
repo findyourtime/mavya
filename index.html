@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>MAVYA · Rideau lumineux LED connecté pour ta fenêtre</title>
-  <meta name="description" content="Accroche MAVYA derrière ta fenêtre et affiche sapin, Père Noël, flocons, texte défilant ou tes propres dessins en pixels de lumière. Appli + télécommande, 16 M de couleurs. Livraison offerte.">
+  <meta name="description" content="Rideau lumineux LED connecté pour ta fenêtre : sapin, flocons, texte ou tes dessins, pilotés par appli et télécommande. Dès 44,90 €, livraison offerte.">
   <link rel="canonical" href="https://findyourtime.github.io/mavya/">
   <meta name="theme-color" content="#05060A">
   <meta name="color-scheme" content="dark">
@@ -21,7 +21,7 @@
   <meta property="og:image:alt" content="Grille de LED qui dessine un sapin de Noël lumineux, à côté du logo MAVYA.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MAVYA · Ta fenêtre devient un écran lumineux.">
-  <meta name="twitter:description" content="Rideau lumineux LED connecté pour ta fenêtre. Appli + télécommande, 16 M de couleurs.">
+  <meta name="twitter:description" content="Rideau lumineux LED connecté pour ta fenêtre. Appli + télécommande, 16 millions de couleurs.">
   <meta name="twitter:image" content="https://findyourtime.github.io/mavya/assets/img/og-image.jpg">
 
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
@@ -29,6 +29,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap"></noscript>
   <link rel="stylesheet" href="assets/css/main.css?v=dev">
@@ -38,7 +40,11 @@
     document.documentElement.classList.add('js');
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
       document.documentElement.classList.add('motion');
-      if ('WebGL2RenderingContext' in window) document.documentElement.classList.add('intro-3d');
+      if ('WebGL2RenderingContext' in window) {
+        document.documentElement.classList.add('intro-3d');
+        // filet de sécurité : sans premier rendu 3D au bout de 6 s (réseau bloqué), retour au hero classique
+        setTimeout(() => document.documentElement.dataset.intro || document.documentElement.classList.remove('intro-3d'), 6000);
+      }
     }
   </script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.15.0/gsap.min.js" integrity="sha384-XmJ9SoHtVOHoQUcKvFAzVXwdkKo1Ie3bhmSoIAkcdsHGaIrVJIkmozyq0FJeb/Ly" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -103,12 +109,15 @@
     </div>
   </header>
 
+  <!-- rideau 3D : calque fixe derrière la page, de l'intro jusqu'à la fenêtre de la maison -->
+  <canvas class="scene3d" data-intro aria-hidden="true"></canvas>
+
   <main id="contenu">
     <!-- 1. HERO : intro 3D (le rideau se construit, s'allume, puis le logo apparaît) ; grille LED 2D sinon -->
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="hero__track">
         <div class="hero__stage">
-          <canvas class="hero__3d" data-intro aria-hidden="true"></canvas>
+          <p class="eyebrow intro__kicker">Rideau LED connecté · dès 44,90&nbsp;€</p>
           <ol class="intro__captions">
             <li>Tout commence par <em>une fenêtre.</em></li>
             <li>Jusqu'à 400&nbsp;LED, <em>fil après fil.</em></li>
@@ -205,64 +214,13 @@
       <div class="street__track">
         <div class="street__stage">
           <div class="wrap street__in">
-            <div class="street__scene" role="img" aria-label="Une maison vue de la rue&nbsp;: de jour, la fenêtre paraît normale&nbsp;; la nuit, le rideau MAVYA s'allume et affiche un sapin sous la neige.">
-              <svg viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                <defs>
-                  <linearGradient id="sky-d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5E9BE0"/><stop offset=".72" stop-color="#B7D5F4"/><stop offset="1" stop-color="#E2EDF8"/></linearGradient>
-                  <linearGradient id="sky-n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#020309"/><stop offset=".65" stop-color="#0A0F24"/><stop offset="1" stop-color="#131A36"/></linearGradient>
-                  <linearGradient id="glass-d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D3E6F8"/><stop offset=".55" stop-color="#93B7DC"/><stop offset="1" stop-color="#7196C0"/></linearGradient>
-                  <radialGradient id="spill"><stop offset="0" stop-color="#FFB86B" stop-opacity=".6"/><stop offset=".45" stop-color="#FF4FB4" stop-opacity=".22"/><stop offset="1" stop-color="#FF4FB4" stop-opacity="0"/></radialGradient>
-                  <radialGradient id="win-halo"><stop offset=".42" stop-color="#7CCBFF" stop-opacity=".3"/><stop offset=".7" stop-color="#C46BFF" stop-opacity=".1"/><stop offset="1" stop-color="#C46BFF" stop-opacity="0"/></radialGradient>
-                  <radialGradient id="sun"><stop offset=".35" stop-color="#FFF6DA"/><stop offset=".55" stop-color="#FFE7A8" stop-opacity=".5"/><stop offset="1" stop-color="#FFE7A8" stop-opacity="0"/></radialGradient>
-                  <radialGradient id="warm"><stop offset="0" stop-color="#FFD08A"/><stop offset="1" stop-color="#FF9D3D"/></radialGradient>
-                  <rect id="s-walls" x="70" y="206" width="260" height="164"/>
-                  <rect id="s-chimney" x="262" y="122" width="22" height="64"/>
-                  <polygon id="s-roof" points="50,215 200,104 350,215"/>
-                  <polygon id="s-snowcap" points="50,215 200,104 350,215 337,215 200,115 63,215"/>
-                  <rect id="s-frame" x="127" y="221" width="146" height="146" rx="3"/>
-                  <rect id="s-glass" x="132" y="226" width="136" height="136"/>
-                  <rect id="s-door" x="288" y="292" width="30" height="78" rx="2"/>
-                  <rect id="s-win2" x="86" y="250" width="28" height="40" rx="2"/>
-                  <circle id="s-oculus" cx="200" cy="168" r="13"/>
-                  <path id="s-pines" d="M34 300 6 372h56zM34 266 12 318h44zM34 236 18 280h32zM372 318l-24 54h48zM372 290l-18 40h36z"/>
-                  <rect id="s-ground" x="0" y="370" width="400" height="50"/>
-                </defs>
-                <!-- ciel -->
-                <rect width="400" height="420" fill="url(#sky-d)"/>
-                <rect class="n" width="400" height="420" fill="url(#sky-n)"/>
-                <g class="d sun"><circle cx="318" cy="70" r="46" fill="url(#sun)"/></g>
-                <g class="d" fill="#fff" opacity=".75"><ellipse cx="96" cy="74" rx="38" ry="11"/><ellipse cx="120" cy="66" rx="24" ry="10"/><ellipse cx="250" cy="44" rx="28" ry="8"/></g>
-                <g class="n" fill="#fff">
-                  <circle cx="30" cy="40" r="1.2"/><circle cx="66" cy="96" r=".9"/><circle cx="112" cy="30" r="1.4"/><circle cx="150" cy="78" r=".8"/><circle cx="182" cy="22" r="1"/>
-                  <circle cx="236" cy="62" r="1.3"/><circle cx="276" cy="28" r=".9"/><circle cx="300" cy="96" r="1.1"/><circle cx="344" cy="54" r="1.5"/><circle cx="380" cy="104" r=".9"/>
-                  <circle cx="20" cy="150" r=".8"/><circle cx="388" cy="20" r="1"/><circle cx="96" cy="140" r="1"/><circle cx="330" cy="148" r=".8"/><circle cx="214" cy="90" r=".7"/>
-                </g>
-                <g class="n"><circle cx="70" cy="62" r="15" fill="#F2EEDF"/><circle cx="77" cy="56" r="13.5" fill="#05070F"/></g>
-                <!-- maison de jour -->
-                <use href="#s-chimney" fill="#8C6A5E"/><rect x="258" y="117" width="30" height="8" rx="3" fill="#F4F7FB"/>
-                <use href="#s-walls" fill="#D8CAB6"/>
-                <use href="#s-roof" fill="#5C4650"/><use href="#s-snowcap" fill="#F4F7FB"/>
-                <use href="#s-frame" fill="#F6F8FB"/><use href="#s-glass" fill="url(#glass-d)"/>
-                <path d="M138 232h42l-38 60h-4zM196 232h22l-58 124h-14z" fill="#fff" opacity=".28"/>
-                <use href="#s-door" fill="#7A5643"/><use href="#s-win2" fill="url(#glass-d)"/><use href="#s-oculus" fill="url(#glass-d)"/>
-                <use href="#s-pines" fill="#2F5F50"/>
-                <use href="#s-ground" fill="#EEF3F9"/>
-                <!-- maison de nuit (silhouette) -->
-                <g class="n">
-                  <use href="#s-chimney" fill="#080B16"/><rect x="258" y="117" width="30" height="8" rx="3" fill="#1A2238"/>
-                  <use href="#s-walls" fill="#0B1020"/>
-                  <use href="#s-roof" fill="#06080F"/><use href="#s-snowcap" fill="#1A2238"/>
-                  <use href="#s-frame" fill="#151C2E"/><use href="#s-glass" fill="#03050A"/>
-                  <use href="#s-door" fill="#090D18"/><use href="#s-win2" fill="url(#warm)" opacity=".75"/><use href="#s-oculus" fill="url(#warm)" opacity=".6"/>
-                  <use href="#s-pines" fill="#050810"/>
-                  <use href="#s-ground" fill="#10172B"/>
-                </g>
-                <!-- lumière du rideau sur la façade et la neige -->
-                <g class="gl">
-                  <rect x="80" y="170" width="240" height="250" fill="url(#win-halo)"/>
-                  <ellipse cx="200" cy="384" rx="160" ry="24" fill="url(#spill)"/>
-                </g>
-              </svg>
+            <div class="street__scene" role="img" aria-label="Une maison vue de la rue, avec une grande baie vitrée&nbsp;: de jour, la vitre paraît normale&nbsp;; la nuit, le rideau MAVYA s'allume derrière et affiche un sapin sous la neige.">
+              <img class="street__photo" src="assets/img/maison.jpg" alt="" width="1200" height="1000" loading="lazy" decoding="async">
+              <!-- nuit : la même maison photographiée de nuit ; lumière du rideau sur la façade et la neige -->
+              <div class="street__night" aria-hidden="true"><img class="street__photo" src="assets/img/maison-nuit.jpg" alt="" width="1200" height="1000" loading="lazy" decoding="async"></div>
+              <div class="street__light" aria-hidden="true"></div>
+              <!-- rideau 3D : la vitre de jour, par-dessus, s'efface à la nuit tombée -->
+              <img class="street__photo street__pane" src="assets/img/maison.jpg" alt="" width="1200" height="1000" loading="lazy" decoding="async">
               <canvas class="led street__led" data-led="street" aria-hidden="true"></canvas>
             </div>
             <div class="street__switch" role="group" aria-label="Moment de la journée">
@@ -378,7 +336,7 @@
           <div class="buy__panel">
             <p class="eyebrow">Commander</p>
             <h2 id="buy-title">Rideau lumineux <span class="glow-text">MAVYA</span></h2>
-            <p class="buy__lead">Appli iOS et Android + télécommande · 16&nbsp;M de couleurs · mode musique · minuterie · LED étanches IP65.</p>
+            <p class="buy__lead">Appli iOS et Android + télécommande · 16&nbsp;millions de couleurs · mode musique · minuterie · LED étanches IP65.</p>
             <div class="shop" id="shop" data-shop>
               <p class="shop-note">Chargement de la boutique…</p>
             </div>

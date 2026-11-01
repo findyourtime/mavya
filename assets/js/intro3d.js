@@ -13,11 +13,12 @@ const FLOOR_Y = -1.42;
 const BOX = [-1.13, .8, 0], BOX_H = [.085, .045, .025];                     // boîtier : centre, demi-dimensions
 const FRAME = { x0: -1.34, x1: 1.34, y0: -1.22, y1: 1.28, z: .08 };
 const SUBJECT = { w: 2.75, h: 2.55, y: .03 };                               // ce que la caméra doit cadrer
+const CURTAIN = { w: 2.24, h: 2.1, y: .055 };                               // le rideau seul (dans la fenêtre de la maison)
 const FOV = 32 * Math.PI / 180;
 
 /* ---------- Timeline (T de 0 à 1) ---------- */
 const AUTO = .16, AUTO_SECONDS = 2.8;             // le tracé du plan et la tringle se jouent seuls
-const CAPTIONS = [[0, .17], [.18, .36], [.37, .52], [.52, .6], [.6, .78]];
+const CAPTIONS = [[0, .2], [.2, .36], [.37, .52], [.52, .6], [.6, .78]];   // la 1re reste lisible après le début automatique
 const SHOTS = [                                   // plans : T, azimut°, élévation°, distance (× cadrage), cible x, y
   [0, -40, 20, 1.32, 0, .2],
   [.16, -31, 13, 1.12, 0, .12],
@@ -308,16 +309,19 @@ void main() {
 }`;
 
 /**
- * Lance l'intro dans `stage` (le décor collant du hero). `onFail` est appelé si le contexte
- * WebGL est perdu ; une exception est levée si WebGL 2 manque, pour revenir à la grille 2D.
+ * Lance le rideau 3D, dessiné dans un calque fixe derrière la page : l'intro dans `stage` (le
+ * décor collant du hero), puis sa descente vers l'histoire et jusque dans la fenêtre de la
+ * maison. `story` et `street` : { slot, track, leds } — l'emplacement à rejoindre, la piste
+ * épinglée et la source des couleurs de leurs motifs (LedSource). `onFail` est appelé si le
+ * contexte WebGL est perdu ; une exception est levée si WebGL 2 manque, pour revenir au 2D.
  */
-export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
-  const canvas = stage.querySelector('[data-intro]');
+export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }) {
+  const canvas = document.querySelector('[data-intro]');
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
   if (!gl) throw new Error('WebGL 2 indisponible');
 
-  const track = stage.parentElement, heroIn = stage.querySelector('.hero__in'), text = stage.querySelector('.hero__text');
-  const cta = stage.querySelector('.hero__cta'), hint = stage.querySelector('.intro__hint');
+  const heroTrack = stage.parentElement, heroIn = stage.querySelector('.hero__in'), text = stage.querySelector('.hero__text');
+  const cta = stage.querySelector('.hero__cta'), hint = stage.querySelector('.intro__hint'), kicker = stage.querySelector('.intro__kicker');
   const captions = [...stage.querySelectorAll('.intro__captions li')], letters = [...stage.querySelectorAll('.intro__logo span')];
   const captionBox = stage.querySelector('.intro__captions'), header = document.querySelector('.site-header');
 
@@ -413,45 +417,77 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
   gl.bindVertexArray(null);
   const maxPoint = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)[1];
 
-  /* cadrage : la fenêtre doit tenir entre les légendes (ou l'en-tête) et le texte du bas */
+  /* cadrage (en pixels CSS du calque) : pendant l'intro, la fenêtre tient entre les légendes
+     (ou l'en-tête) et le texte du bas ; ensuite, elle rejoint l'emplacement de chaque section */
   const proj = new Float32Array(16), view = new Float32Array(16), vp = new Float32Array(16);
-  let frames = null, wide = false;
-  function fit(top, bottom, width, height, share) {
-    const tan = Math.tan(FOV / 2), fh = Math.max(.25, (bottom - top) / height);
-    const d = Math.max(SUBJECT.h / (2 * fh * tan), SUBJECT.w / (2 * share * tan * width / height));
-    return { d, cy: 1 - (top + bottom) / height };
+  let screenW = 1, screenH = 1, frames = null, slots = null;
+  function fit(top, bottom, share) {
+    const tan = Math.tan(FOV / 2), fh = Math.max(.25, (bottom - top) / screenH);
+    const d = Math.max(SUBJECT.h / (2 * fh * tan), SUBJECT.w / (2 * share * tan * screenW / screenH));
+    return { d, cy: 1 - (top + bottom) / screenH };
   }
+  /** Plan de face qui fait tenir `subject` dans le rectangle `r` de l'écran. */
+  const frameIn = (r, subject) => ({
+    az: 0, el: 0, d: Math.max(subject.h / r.h, subject.w / r.w) * screenH / (2 * Math.tan(FOV / 2)),
+    cx: (r.x + r.w / 2) / screenW * 2 - 1, cy: 1 - (r.y + r.h / 2) / screenH * 2, tx: 0, ty: subject.y,
+  });
+  const liveRect = el => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
+  /** Rectangle d'un emplacement une fois son décor collant épinglé en haut de l'écran. */
+  const pinnedRect = el => ({ ...liveRect(el), y: el.getBoundingClientRect().top - el.closest('.story__stage, .street__stage').getBoundingClientRect().top });
   function layout() {
-    const dpr = Math.min(devicePixelRatio || 1, 2), w = stage.clientWidth, h = stage.clientHeight;
-    canvas.width = Math.max(1, Math.round(w * dpr));
-    canvas.height = Math.max(1, Math.round(h * dpr));
-    wide = w >= 900;
-    const head = header?.offsetHeight ?? 64;
-    if (wide) {
-      const f = fit(head, h, w, h, .52);
+    const dpr = Math.min(devicePixelRatio || 1, 2), sh = stage.clientHeight, head = header?.offsetHeight ?? 64;
+    screenW = canvas.clientWidth || 1;
+    screenH = canvas.clientHeight || 1;
+    canvas.width = Math.round(screenW * dpr);
+    canvas.height = Math.round(screenH * dpr);
+    if (matchMedia('(min-width: 900px)').matches) {   // même seuil que le CSS (barre de défilement comprise)
+      const f = fit(head + 12, sh - 24, .52);
+      f.d *= 1.03;   // marge : la fenêtre finale, vue de face, tient dans l'écran même en 16:9
       frames = { mid: { ...f, cx: .42 }, end: { ...f, cx: .42 } };
     } else {
       const capBottom = captionBox.offsetTop + Math.max(...captions.map(li => li.offsetHeight));
-      frames = { mid: { ...fit(capBottom + 12, h - 24, w, h, .92), cx: 0 }, end: { ...fit(head + 8, heroIn.offsetTop - 8, w, h, .92), cx: 0 } };
+      frames = { mid: { ...fit(capBottom + 12, sh - 24, .92), cx: 0 }, end: { ...fit(head + 8, heroIn.offsetTop - 8, .92), cx: 0 } };
     }
+    slots = { story: pinnedRect(story.slot), street: pinnedRect(street.slot) };
   }
 
-  /* camera : interpolation de Catmull-Rom entre les plans */
+  /* caméra : plans de l'intro (Catmull-Rom), puis plans de face sur les emplacements */
   const eye = [0, 0, 0], target = [0, 0, 0];
-  function camera(T, time) {
+  function introShot(T, time) {
     let k = SHOTS.findIndex(s => s[0] > T) - 1;
     if (k < 0) k = T < 0 ? 0 : SHOTS.length - 2;
     const a = SHOTS[Math.max(0, k - 1)], b = SHOTS[k], c = SHOTS[k + 1], d = SHOTS[Math.min(SHOTS.length - 1, k + 2)];
     const u = lin(T, b[0], c[0]);
     const cr = i => .5 * (2 * b[i] + (c[i] - a[i]) * u + (2 * a[i] - 5 * b[i] + 4 * c[i] - d[i]) * u * u + (3 * b[i] - a[i] - 3 * c[i] + d[i]) * u * u * u);
-    const e = seg(T, .8, .92), fr = { d: mix(frames.mid.d, frames.end.d, e), cx: mix(frames.mid.cx, frames.end.cx, e), cy: mix(frames.mid.cy, frames.end.cy, e) };
-    const az = (cr(1) + 1.4 * Math.sin(time * .23)) * Math.PI / 180, el = (cr(2) + .7 * Math.sin(time * .29)) * Math.PI / 180;
-    const r = cr(3) * fr.d;
-    target[0] = cr(4); target[1] = cr(5); target[2] = 0;
-    eye[0] = target[0] + r * Math.sin(az) * Math.cos(el);
-    eye[1] = target[1] + r * Math.sin(el);
-    eye[2] = r * Math.cos(az) * Math.cos(el);
-    perspective(proj, canvas.width / canvas.height, fr.cx, fr.cy);
+    const e = seg(T, .8, .92);
+    return {
+      az: cr(1) + 1.4 * Math.sin(time * .23), el: cr(2) + .7 * Math.sin(time * .29), d: cr(3) * mix(frames.mid.d, frames.end.d, e),
+      cx: mix(frames.mid.cx, frames.end.cx, e), cy: mix(frames.mid.cy, frames.end.cy, e), tx: cr(4), ty: cr(5),
+    };
+  }
+  /** D'un plan à l'autre, avec un léger balancement et un creux : le rideau descend, comme porté. */
+  function travel(a, b, k) {
+    const e = smooth(k), arc = Math.sin(k * Math.PI), s = {};
+    for (const key in a) s[key] = mix(a[key], b[key], e);
+    s.az += 14 * arc;
+    s.el += 6 * arc;
+    s.cy -= .18 * arc;
+    return s;
+  }
+  function shotAt(T, k1, k2, time) {
+    if (k2 >= 1) return frameIn(liveRect(street.slot), CURTAIN);   // suit la fenêtre quand la rue défile
+    if (k2 > 0) return travel(frameIn(slots.story, SUBJECT), frameIn(slots.street, CURTAIN), k2);
+    if (k1 >= 1) return frameIn(liveRect(story.slot), SUBJECT);
+    if (k1 > 0) return travel(introShot(1, time), frameIn(slots.story, SUBJECT), k1);
+    return introShot(T, time);
+  }
+  function place(s) {
+    const az = s.az * Math.PI / 180, el = s.el * Math.PI / 180;
+    target[0] = s.tx; target[1] = s.ty; target[2] = 0;
+    eye[0] = s.tx + s.d * Math.sin(az) * Math.cos(el);
+    eye[1] = s.ty + s.d * Math.sin(el);
+    eye[2] = s.d * Math.cos(az) * Math.cos(el);
+    perspective(proj, canvas.width / canvas.height, s.cx, s.cy);
     multiply(vp, proj, lookAt(view, eye, target));
   }
 
@@ -459,12 +495,15 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
   const CYAN = [.18, .9, 1], CYAN_LIN = CYAN.map(v => v ** 2.2), WHITE = [1, 1, 1];
   const ledXY = new Float32Array(N * 2);
   const tint = [0, 0, 0], glowCol = [0, 0, 0];   // couleur moyenne des LED allumées (écran), et sa lumière (linéaire)
-  function scene(T, time) {
+  let flutter = 0;   // le rideau ondule quand on le déplace
+  const storyRGB = new Float32Array(N * 3), streetRGB = new Float32Array(N * 3);
+  function scene(T, k1, k2, time) {
     HALO.n = REFL.n = 0;
+    const floorK = 1 - smooth(k1), props = 1 - smooth(k2);   // le sol s'efface après l'intro ; cadre, vitre et boîtier, en entrant dans la maison
 
     // 1. le plan : les quatre côtés de la fenêtre se tracent au néon, puis deviennent des montants
     const drawn = lin(T, .005, .085) * 4, solid = seg(T, .3, .4), blue = 1 - seg(T, .32, .44);
-    const th = mix(.007, .05, solid), depth = mix(.007, .06, solid);
+    const th = mix(.007, .05, solid) * props, depth = mix(.007, .06, solid) * props;
     const edges = [[FRAME.x0, FRAME.y1, 1, 0], [FRAME.x1, FRAME.y1, 0, -1], [FRAME.x1, FRAME.y0, -1, 0], [FRAME.x0, FRAME.y0, 0, 1]];
     edges.forEach(([sx, sy, dx, dy], e) => {
       const k = clamp(drawn - e), l = (dx ? FRAME.x1 - FRAME.x0 : FRAME.y1 - FRAME.y0) * k, o = e * 20;
@@ -489,7 +528,8 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
     // 3. les fils tombent un à un, avec leurs LED, et se balancent avant de se poser
     for (let i = 0; i < COLS; i++) {
       const start = .165 + i * .0062, x = lin(T, start, start + .075), L = STRAND_LEN * spring(x);
-      const sway = (i % 2 ? 1 : -1) * .16 * Math.sin(x * 10) * Math.exp(-x * 4) + .004 * Math.sin(time * .9 + i * .7) * Math.min(1, x * 3);
+      const sway = (i % 2 ? 1 : -1) * .16 * Math.sin(x * 10) * Math.exp(-x * 4)
+        + (.004 * Math.sin(time * .9 + i * .7) + .07 * flutter * Math.sin(time * 5.5 + i * .55)) * Math.min(1, x * 3);
       const ax = X0 + i * PITCH, dx = Math.sin(sway), dy = -Math.cos(sway), clip = back(lin(T, start - .012, start + .02));
       compose(G.strands.inst, i * 20, ax + dx * L / 2, ROD_Y + dy * L / 2, 0, 0, 0, sway, L > 0 ? .0045 : 0, L, .0045);
       compose(G.clips.inst, i * 20, ax, ROD_Y, 0, 0, 0, Math.PI / 2, .021 * clip, .028 * clip, .021 * clip);
@@ -501,18 +541,19 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
     }
 
     // 4. le boîtier arrive en tournoyant, le bouton se clipse, les câbles se déroulent
-    const bk = lin(T, .37, .47), be = smooth(bk), spin = 1 - be, bs = bk > 0 ? mix(.35, 1, be) : 0;
+    const bk = lin(T, .37, .47), be = smooth(bk), spin = 1 - be, bs = (bk > 0 ? mix(.35, 1, be) : 0) * props;
     const bounce = Math.sin(lin(T, .47, .5) * Math.PI) * -.012;
     compose(G.box.inst, 0, mix(-2.4, BOX[0], be), mix(.2, BOX[1], be) + Math.sin(bk * Math.PI) * .3 + bounce, mix(1.4, BOX[2], be), spin * 2.4, spin * -3.1, spin * 1.2, bs, bs, bs);
-    const btn = back(lin(T, .47, .5));
+    const btn = back(lin(T, .47, .5)) * props;
     compose(G.button.inst, 0, BOX[0] - .035, BOX[1] + bounce, BOX_H[2] + .004, Math.PI / 2, 0, 0, .015 * btn, .012 * btn, .015 * btn);
-    const ledOn = lin(T, .565, .575), sk = back(lin(T, .48, .5)) * .0065;
+    const ledOn = lin(T, .565, .575) * props, sk = back(lin(T, .48, .5)) * .0065 * props;
     compose(G.beads.inst, N * 20, BOX[0] + .045, BOX[1] + bounce, BOX_H[2] + .002, 0, 0, 0, sk, sk, sk);
     G.beads.inst.set(CYAN_LIN, N * 20 + 16);
     G.beads.inst[N * 20 + 19] = 4 * ledOn;
     if (ledOn > 0) push(HALO, BOX[0] + .045, BOX[1], BOX_H[2] + .01, ...CYAN, ledOn * (.85 + .15 * Math.sin(time * 3)), .09);
-    G.link.draw = Math.floor(seg(T, .44, .48) * (LINK.length - 1)) * G.link.geo.step;
-    G.usb.draw = Math.floor(seg(T, .46, .53) * (USB.length - 1)) * G.usb.geo.step;
+    const wired = props > .7 ? 1 : 0;   // dans la maison, les câbles restent hors de vue
+    G.link.draw = Math.floor(seg(T, .44, .48) * (LINK.length - 1)) * G.link.geo.step * wired;
+    G.usb.draw = Math.floor(seg(T, .46, .53) * (USB.length - 1)) * G.usb.geo.step * wired;
 
     // 5. le courant : une étincelle remonte le câble USB, traverse le boîtier, puis longe la tringle
     const along = (pts, u) => { const f = clamp(u) * (pts.length - 1), k = Math.min(pts.length - 2, Math.floor(f)), t = f - k; return [0, 1, 2].map(c => mix(pts[k][c], pts[k + 1][c], t)); };
@@ -522,23 +563,32 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
       push(HALO, p[0], p[1], p[2] + .01, ...(k ? CYAN : WHITE), 1.3 - k * .3, .2 - k * .035);
     }
 
-    // 6. allumage : un éclair blanc balaie le rideau, le sapin reste ; puis le « M » du logo
+    // 6. allumage : un éclair blanc balaie le rideau, le sapin reste ; puis le « M » du logo.
+    //    En descendant, colonne par colonne, les motifs de l'histoire puis ceux de la rue prennent le relais.
+    const now = performance.now() / 1000;
+    if (k1 > 0 && k2 < 1) story.leds.sample(now, storyRGB);
+    if (k2 > 0) street.leds.sample(now, streetRGB);
     let lit = 0, count = 0;
     tint[0] = tint[1] = tint[2] = 0;
-    const mirror = .16 * (1 - .75 * seg(T, .82, .95));   // reflets plus discrets quand le texte final arrive
+    const mirror = .16 * (1 - .75 * seg(T, .82, .95)) * floorK;   // reflets plus discrets quand le texte final arrive
     for (let n = 0; n < N; n++) {
-      const L = LEDS[n], k = lin(T, L.on, L.on + .022), o = n * 20;
+      const L = LEDS[n], k = lin(T, L.on, L.on + .022), o = n * 20, wave = .1 + L.i * .025;
+      const wIntro = 1 - seg(k1, wave, wave + .35), wStreet = seg(k2, wave, wave + .35), wStory = (1 - wIntro) * (1 - wStreet);
       let r = 0, g = 0, b = 0, m = 0;
-      if (k > 0) {
+      if (k > 0 && wIntro > 0) {
         const flash = Math.sin(k * Math.PI) * .9;
         m = seg(T, .765 + L.i * .0035, .79 + L.i * .0035);
         const tw = L.star ? .72 + .28 * (.5 + .5 * Math.sin(time * 5.3 + L.phase)) : .93 + .07 * Math.sin(time * 2.1 + L.phase);
         const tree = L.tree ? L.treeK * tw * smooth(k) * (1 - m) : 0, logo = L.logo ? m * (.9 + .1 * Math.sin(time * 1.7 + L.i * .3)) : 0;
         const dip = 1 - .85 * Math.sin(m * Math.PI);
-        r = Math.min(1, ((L.tree ? L.tree[0] * tree : 0) + (L.logo ? L.logo[0] * logo : 0)) * dip + flash);
-        g = Math.min(1, ((L.tree ? L.tree[1] * tree : 0) + (L.logo ? L.logo[1] * logo : 0)) * dip + flash);
-        b = Math.min(1, ((L.tree ? L.tree[2] * tree : 0) + (L.logo ? L.logo[2] * logo : 0)) * dip + flash);
+        r = Math.min(1, ((L.tree ? L.tree[0] * tree : 0) + (L.logo ? L.logo[0] * logo : 0)) * dip + flash) * wIntro;
+        g = Math.min(1, ((L.tree ? L.tree[1] * tree : 0) + (L.logo ? L.logo[1] * logo : 0)) * dip + flash) * wIntro;
+        b = Math.min(1, ((L.tree ? L.tree[2] * tree : 0) + (L.logo ? L.logo[2] * logo : 0)) * dip + flash) * wIntro;
+        m *= wIntro;
       }
+      if (wStory > 0) { r += storyRGB[n * 3] * wStory; g += storyRGB[n * 3 + 1] * wStory; b += storyRGB[n * 3 + 2] * wStory; }
+      if (wStreet > 0) { r += streetRGB[n * 3] * wStreet; g += streetRGB[n * 3 + 1] * wStreet; b += streetRGB[n * 3 + 2] * wStreet; }
+      r = Math.min(1, r); g = Math.min(1, g); b = Math.min(1, b);
       const bright = Math.max(r, g, b);
       G.beads.inst[o + 16] = r ** 2.2;
       G.beads.inst[o + 17] = g ** 2.2;
@@ -563,9 +613,9 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
   /* rendu */
   const BG_RGB = hex('#05060A');
   const center = new Float32Array(4);
-  function render(T, time) {
-    camera(T, time);
-    const share = scene(T, time);
+  function render(T, k1, k2, time, shot) {
+    place(shot);
+    const share = scene(T, k1, k2, time);
     const W = canvas.width, H = canvas.height;
     gl.viewport(0, 0, W, H);
     gl.clearColor(BG_RGB[0], BG_RGB[1], BG_RGB[2], 1);
@@ -583,7 +633,7 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
     gl.useProgram(HAZE.p);
     gl.uniform2f(HAZE.u.u_res, W, H);
     gl.uniform2f(HAZE.u.u_center, center[0], center[1]);
-    gl.uniform1f(HAZE.u.u_radius, Math.min(W, H) * .62);
+    gl.uniform1f(HAZE.u.u_radius, Math.max(60, SUBJECT.h / (2 * shot.d * Math.tan(FOV / 2)) * H * .78));   // à l'échelle du rideau
     gl.uniform3fv(HAZE.u.u_bg, BG_RGB);
     gl.uniform3f(HAZE.u.u_col, CYAN[0] * blue + tint[0] * warm, CYAN[1] * blue + tint[1] * warm, CYAN[2] * blue + tint[2] * warm);
     gl.bindVertexArray(hazeVao);
@@ -604,7 +654,8 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
     gl.uniform3fv(MESH.u.u_glowCol, glowCol);
     gl.uniform3fv(MESH.u.u_bg, BG_RGB);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    drawGroup(G.floor);
+    G.floor.mat.alpha = .84 * (1 - smooth(k1));
+    if (G.floor.mat.alpha > .01) drawGroup(G.floor);
     gl.disable(gl.BLEND);
     for (const g of [G.frame, G.rod, G.clips, G.strands, G.beads, G.box, G.button, G.link, G.usb]) drawGroup(g);
 
@@ -615,7 +666,7 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
     drawGlows(HALO, H);
 
     // vitre
-    const glass = seg(T, .34, .44);
+    const glass = seg(T, .34, .44) * (1 - smooth(k2));
     if (glass > 0) {
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(GLASS.p);
@@ -664,6 +715,7 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
         li.style.transform = `translateY(${((1 - inK) * 18 - outK * 18).toFixed(1)}px)`;
       });
       letters.forEach((s, k) => s.style.setProperty('--k', seg(T, .84 + k * .02, .9 + k * .02).toFixed(3)));
+      kicker.style.opacity = (1 - seg(T, .84, .9)).toFixed(3);   // le texte final reprend le nom et le prix
       const end = seg(T, .9, .98);
       text.style.setProperty('--end', end.toFixed(3));
       cta.inert = end < .5;
@@ -671,26 +723,43 @@ export function startIntro({ stage, gsap, ScrollTrigger, onFail }) {
     hint.style.opacity = hintK.toFixed(3);
   }
 
-  /* boucle : début automatique, puis défilement ; arrêt hors de l'écran */
-  let T = 0, auto = 0, progress = 0, autoDoneAt = 0, running = false;
-  const st = ScrollTrigger.create({ trigger: track, start: 'top top', end: 'bottom bottom', onUpdate: self => { progress = self.progress; } });
-  progress = st.progress;
-  function tick(time, deltaMs) {
-    const dt = Math.min(.05, deltaMs / 1000);
-    if (auto < 1) { auto = Math.min(1, auto + dt / AUTO_SECONDS); if (auto === 1) autoDoneAt = time; }
-    const goal = AUTO * smooth(auto) + (1 - AUTO) * progress;
-    T += (goal - T) * (1 - Math.exp(-dt * 6));
-    render(T, time);
-    overlay(T, auto < 1 ? 0 : clamp((time - autoDoneAt - .8) / .6) * (1 - lin(progress, 0, .015)));
-  }
+  /* boucle : début automatique, puis défilement (intro, descente vers l'histoire, puis vers la rue) ;
+     le calque est masqué et la boucle arrêtée au-delà de la rue */
+  let T = 0, auto = 0, autoDoneAt = 0, running = false, last = null;
   const run = on => {
+    canvas.style.visibility = on ? '' : 'hidden';
     if (on === running) return;
     running = on;
     on ? gsap.ticker.add(tick) : gsap.ticker.remove(tick);
   };
+  const hero = ScrollTrigger.create({ trigger: heroTrack, start: 'top top', end: 'bottom bottom' });
+  const toStory = ScrollTrigger.create({ trigger: heroTrack, start: 'bottom bottom', endTrigger: story.track, end: 'top top' });
+  const toStreet = ScrollTrigger.create({ trigger: story.track, start: 'bottom bottom', endTrigger: street.track, end: 'top top' });
+  const range = ScrollTrigger.create({ trigger: heroTrack, start: 'top bottom', endTrigger: street.track, end: 'bottom top', onToggle: self => run(self.isActive) });
+  let k1 = toStory.progress, k2 = toStreet.progress;   // page rechargée plus bas : le rideau y est déjà,
+  if (hero.progress > 0 || k1 > 0) { auto = 1; T = AUTO + (1 - AUTO) * hero.progress; }   // sans rejouer le début
+  const approach = (v, goal, k) => Math.abs(goal - v) < 1e-3 ? goal : v + (goal - v) * k;
+  function tick(time, deltaMs) {
+    const dt = Math.min(.05, deltaMs / 1000), follow = 1 - Math.exp(-dt * 6);
+    if (auto < 1) { auto = Math.min(1, auto + dt / AUTO_SECONDS); if (auto === 1) autoDoneAt = time; }
+    T = approach(T, AUTO * smooth(auto) + (1 - AUTO) * hero.progress, follow);
+    k1 = approach(k1, toStory.progress, follow);
+    k2 = approach(k2, toStreet.progress, follow);
+    const shot = shotAt(T, k1, k2, time);
+    if (last) flutter = Math.min(1, flutter * Math.exp(-dt * 2.5) + (Math.abs(shot.cx - last.cx) + Math.abs(shot.cy - last.cy) + Math.abs(shot.d - last.d) / shot.d) * 2.5);
+    last = shot;
+    render(T, k1, k2, time, shot);
+    overlay(T, auto < 1 ? 0 : clamp((time - autoDoneAt - .8) / .6) * (1 - lin(hero.progress, 0, .015)));
+  }
   layout();
-  run(true);
-  new IntersectionObserver(([e]) => run(e.isIntersecting)).observe(track);
-  new ResizeObserver(layout).observe(stage);
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); run(false); st.kill(); onFail?.(); });
+  run(range.isActive);
+  document.documentElement.dataset.intro = 'on';   // le filet de sécurité du <head> ne retirera plus l'intro
+  ScrollTrigger.addEventListener('refresh', layout);   // emplacements remesurés après chaque recalcul des pistes
+  new ResizeObserver(layout).observe(canvas);
+  canvas.addEventListener('webglcontextlost', e => {
+    e.preventDefault();
+    run(false);
+    for (const t of [hero, toStory, toStreet, range]) t.kill();
+    onFail?.();
+  }, { once: true });
 }

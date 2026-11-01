@@ -34,6 +34,7 @@ export function led(hex) {
     s = {
       halo: radial(64, [[0, c(.6)], [.16, c(.37)], [.4, c(.13)], [.7, c(.04)], [1, c(0)]]),
       core: radial(48, [[0, `rgb(${hot(r)},${hot(g)},${hot(b)})`], [.32, c(1)], [.62, c(.5)], [1, c(0)]]),
+      rgb: [r / 255, g / 255, b / 255],   // pour le rideau 3D
     };
     sprites.set(hex, s);
   }
@@ -239,10 +240,10 @@ class Frame {
   clear() { this.s.fill(null); this.v.fill(0); }
 }
 
-export class LedGrid {
-  constructor(canvas, { cols = 20, rows = 20, rod = true, shimmer = true, glow = 1, base = 1, dpr = 0 } = {}) {
-    Object.assign(this, { canvas, cols, rows, rod, glow, base, dpr, n: cols * rows });
-    this.ctx = canvas.getContext('2d');
+/** Ce que montre un rideau : scène, transition LED par LED, luminosité, allumage ligne par ligne. */
+class LedState {
+  constructor({ cols = 20, rows = 20, shimmer = true } = {}) {
+    Object.assign(this, { cols, rows, n: cols * rows });
     this.motion = motion;
     this.shimmer = shimmer && motion;
     this.a = new Frame(this.n);
@@ -253,15 +254,9 @@ export class LedGrid {
     this.delay = new Float32Array(this.n);
     this.rnd = Float32Array.from({ length: this.n }, Math.random);
     this.jitter = Float32Array.from({ length: cols }, Math.random);
-    this.visible = false;
-    this.dirty = true;
-    canvas.ledGrid = this;
-    new ResizeObserver(() => { this.layout(); this.touch(); }).observe(canvas);
-    onScreen.observe(canvas);
-    grids.add(this);
   }
 
-  touch() { this.dirty = true; wake(); }
+  touch() {}
 
   put(f, c, r, s, v) {
     if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) return;
@@ -315,6 +310,63 @@ export class LedGrid {
     return p >= 1 ? 1 : p <= 0 ? 0 : clamp(p * (this.rows + 4) - 2 - r + (this.jitter[c] - .5) * 1.6);
   }
 
+  /** Calcule l'image de la scène affichée (A) et, pendant une transition, de la suivante (B). */
+  frames(now) {
+    if (this.next && now - this.tStart >= this.spread + this.ledDur) this.finish();
+    // l'horodatage d'une image peut précéder de quelques ms l'appel à show() : on borne à 0
+    const since = t0 => Math.max(0, now - t0);
+    this.a.clear();
+    const moving = this.scene ? this.scene.render(this.motion ? since(this.start) : this.scene.still ?? 2, this.a, this) : false;
+    const fading = !!this.next;
+    if (fading) { this.b.clear(); this.next.render(since(this.nextStart), this.b, this); }
+    return { moving, fading, tt: fading ? since(this.tStart) : 0 };
+  }
+
+  /** Intensité de la LED i : luminosité, allumage ligne par ligne, léger scintillement. */
+  gain(i, now) {
+    const c = i % this.cols, r = (i - c) / this.cols, rnd = this.rnd;
+    const m = this.level * this.revealOf(c, r);
+    return this.shimmer ? m * (.9 + .1 * Math.sin(now * (1.1 + rnd[i] * 1.9) + rnd[i] * 50)) : m;
+  }
+}
+
+/** Mêmes scènes et transitions, sans dessin : la couleur de chaque LED, pour le rideau 3D. */
+export class LedSource extends LedState {
+  /** Écrit dans `out` (r, g, b de chaque LED, de 0 à 1 environ) l'image de l'instant `now` (en s). */
+  sample(now, out) {
+    const { a: A, b: B, n } = this, { fading, tt } = this.frames(now), white = led('#FFFFFF').rgb;
+    for (let i = 0; i < n; i++) {
+      const va = A.v[i], vb = fading ? B.v[i] : 0;
+      let r = 0, g = 0, b = 0;
+      if (va > 0 || vb > 0) {
+        const m = this.gain(i, now), k = fading ? ease(clamp((tt - this.delay[i]) / this.ledDur)) : 1;
+        if (va > 0) { const w = va * (fading ? 1 - k : 1) * m, s = A.s[i].rgb; r += s[0] * w; g += s[1] * w; b += s[2] * w; }
+        if (vb > 0) {
+          const w = vb * k * m, s = B.s[i].rgb, fl = this.flash * Math.sin(Math.PI * k) * vb * (1 - Math.min(1, va)) * m;
+          r += s[0] * w + white[0] * fl; g += s[1] * w + white[1] * fl; b += s[2] * w + white[2] * fl;
+        }
+      }
+      out[i * 3] = r; out[i * 3 + 1] = g; out[i * 3 + 2] = b;
+    }
+  }
+}
+
+/** Rideau dessiné en canvas 2D. */
+export class LedGrid extends LedState {
+  constructor(canvas, { cols = 20, rows = 20, rod = true, shimmer = true, glow = 1, base = 1, dpr = 0 } = {}) {
+    super({ cols, rows, shimmer });
+    Object.assign(this, { canvas, rod, glow, base, dpr });
+    this.ctx = canvas.getContext('2d');
+    this.visible = false;
+    this.dirty = true;
+    canvas.ledGrid = this;
+    new ResizeObserver(() => { this.layout(); this.touch(); }).observe(canvas);
+    onScreen.observe(canvas);
+    grids.add(this);
+  }
+
+  touch() { this.dirty = true; wake(); }
+
   layout() {
     const dpr = this.dpr || Math.min(devicePixelRatio || 1, 2);   // résolution imposée (image de partage) ou écran, plafonnée à 2
     const w = Math.round(this.canvas.clientWidth * dpr), h = Math.round(this.canvas.clientHeight * dpr);
@@ -355,14 +407,8 @@ export class LedGrid {
   /** Dessine une image ; renvoie true tant qu'il faut continuer à animer. */
   draw(now) {
     if (!this.cell) return false;
-    const { ctx, cols, n, xs, ys, cell, a: A, b: B, rnd } = this;
-    if (this.next && now - this.tStart >= this.spread + this.ledDur) this.finish();
-    // l'horodatage d'une image peut précéder de quelques ms l'appel à show() : on borne à 0
-    const since = t0 => Math.max(0, now - t0);
-    A.clear();
-    const moving = this.scene ? this.scene.render(this.motion ? since(this.start) : this.scene.still ?? 2, A, this) : false;
-    const fading = !!this.next, tt = fading ? since(this.tStart) : 0;
-    if (fading) { B.clear(); this.next.render(since(this.nextStart), B, this); }
+    const { ctx, cols, n, xs, ys, cell, a: A, b: B } = this;
+    const { moving, fading, tt } = this.frames(now);
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -378,9 +424,7 @@ export class LedGrid {
       for (let i = 0; i < n; i++) {
         const va = A.v[i], vb = fading ? B.v[i] : 0;
         if (va <= 0 && vb <= 0) continue;
-        const c = i % cols, r = (i - c) / cols;
-        let m = this.level * this.revealOf(c, r);
-        if (this.shimmer) m *= .9 + .1 * Math.sin(now * (1.1 + rnd[i] * 1.9) + rnd[i] * 50);
+        const c = i % cols, r = (i - c) / cols, m = this.gain(i, now);
         if (m <= .003) continue;
         const x = xs[c] - rad, y = ys[r] - rad;
         let k = 1;

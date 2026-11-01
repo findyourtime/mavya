@@ -2,7 +2,7 @@
 // apparitions et compteurs (GSAP + ScrollTrigger), défilement fluide (Lenis),
 // barre d'achat mobile et chargement différé de la boutique Shopify.
 
-import { LedGrid, Pattern, Drawing, Snow, Heart, Marquee, motion } from './led-grid.js?v=dev';
+import { LedGrid, LedSource, Pattern, Drawing, Snow, Heart, Marquee, motion } from './led-grid.js?v=dev';
 import { SAPIN, PERE_NOEL, MAVYA_STILL, heartRows } from './patterns.js?v=dev';
 
 const root = document.documentElement;
@@ -35,6 +35,7 @@ const scrollToY = y => lenis ? lenis.scrollTo(y) : scrollTo({ top: y, behavior: 
 /* liens internes : défilement sous l'en-tête (marge = scroll-padding-top du CSS), puis focus
    sur la cible pour que le clavier reparte de là (lien « Aller au contenu », retour en haut) */
 document.addEventListener('click', e => {
+  if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // ouvrir dans un onglet, etc. : comportement normal
   const link = e.target.closest('a[href^="#"]');
   const target = link && link.hash.length > 1 && document.getElementById(decodeURIComponent(link.hash.slice(1)));
   if (!target) return;
@@ -46,25 +47,25 @@ document.addEventListener('click', e => {
   target.focus({ preventScroll: true });
 });
 
-/* ---------- 1. Hero : intro 3D (WebGL 2) ; sinon la grille 2D s'allume et dessine un sapin ---------- */
+/* ---------- 1. Rideau 3D (WebGL 2) : l'intro du hero, puis il descend vers l'histoire et la rue.
+   Sans lui (mouvement réduit, pas de WebGL 2), chaque section garde sa grille LED en 2D. ---------- */
+const three = animated && root.classList.contains('intro-3d');
+const leds = {};   // affichages de l'histoire et de la rue : grilles 2D, ou couleurs pour le rideau 3D
+const ledCanvas = { story: $('[data-led="story"]'), street: $('[data-led="street"]') };
+const ledOptions = { story: {}, street: { glow: 1.15, base: .8 } };
+const display = key => three ? new LedSource() : new LedGrid(ledCanvas[key], ledOptions[key]);
 function heroGrid() {
   root.classList.remove('intro-3d');
   const hero = new LedGrid($('[data-led="hero"]'));
   if (motion) setTimeout(() => hero.show(sapin(), { order: 'up', spread: 1.7, duration: .3, flash: 1 }), 450);
   else hero.show(sapin(), { instant: true });
 }
-if (animated && root.classList.contains('intro-3d')) {
-  const fallback = () => { heroGrid(); ScrollTrigger.refresh(); };
-  import('./intro3d.js?v=dev')
-    .then(m => m.startIntro({ stage: $('.hero__stage'), gsap, ScrollTrigger, onFail: fallback }))
-    .catch(err => { console.error(err); fallback(); });
-} else heroGrid();
 
 /* ---------- 2. Histoire : un motif par étape, grille épinglée pendant le défilement ---------- */
 const story = $('[data-story]');
 if (story) {
-  const canvas = $('canvas', story);
-  const grid = new LedGrid(canvas);
+  const canvas = ledCanvas.story;
+  leds.story = display('story');
   const steps = $$('[data-step]', story), dots = $$('[data-goto]', story);
   const scenes = [
     [sapin(), { order: 'up', spread: .7 }],
@@ -81,7 +82,7 @@ if (story) {
     dots.forEach((d, j) => j === i ? d.setAttribute('aria-current', 'step') : d.removeAttribute('aria-current'));
     canvas.setAttribute('aria-label', `Rideau de LED : ${steps[i].dataset.label}.`);
     const [scene, how] = scenes[i];
-    grid.show(scene, instant ? { instant } : how);
+    leds.story.show(scene, instant ? { instant } : how);
   };
   go(0, true);
 
@@ -100,13 +101,13 @@ if (story) {
 const street = $('[data-street]');
 if (street) {
   const scene = $('.street__scene', street), buttons = $$('[data-time]', street);
-  const grid = new LedGrid($('canvas', street), { glow: 1.15, base: .8 });
-  grid.show(new Snow({ under: sapin(), ground: false, count: 12 }), { instant: true });
+  leds.street = display('street');
+  leds.street.show(new Snow({ under: sapin(), ground: false, count: 12 }), { instant: true });
   const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
   const set = p => {   // p : 0 = plein jour, 1 = nuit et rideau allumé
     scene.style.setProperty('--night', smooth(.04, .5, p).toFixed(3));
     scene.style.setProperty('--glow', smooth(.58, .95, p).toFixed(3));
-    grid.setReveal(clamp((p - .46) / .36));
+    leds.street.setReveal(clamp((p - .46) / .36));
     buttons.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.time === (p < .46 ? 0 : 1))));
   };
   if (animated) {
@@ -121,6 +122,29 @@ if (street) {
     buttons.forEach(b => b.addEventListener('click', () => set(+b.dataset.time)));
   }
 }
+
+/* le rideau 3D prend le relais des trois grilles ; s'il échoue, retour aux grilles 2D, dans le même état */
+if (three) {
+  const fallback = () => {
+    heroGrid();
+    $('.hero__cta').inert = false;   // l'intro le gardait inactif tant qu'il était invisible
+    for (const key of ['story', 'street']) {
+      const was = leds[key];
+      if (!(was instanceof LedSource)) continue;
+      leds[key] = new LedGrid(ledCanvas[key], ledOptions[key]);
+      if (was.scene) leds[key].show(was.scene, { instant: true });
+      leds[key].setReveal(was.revealAt);
+    }
+    ScrollTrigger.refresh();
+  };
+  import('./intro3d.js?v=dev')
+    .then(m => !root.classList.contains('intro-3d') ? fallback() : m.startIntro({   // le filet de sécurité du <head> a pu la retirer entre-temps
+      stage: $('.hero__stage'), gsap, ScrollTrigger, onFail: fallback,
+      story: { slot: $('.led-frame', story), track: $('.story__track', story), leds: leds.story },
+      street: { slot: ledCanvas.street, track: $('.street__track', street), leds: leds.street },
+    }))
+    .catch(err => { console.error(err); fallback(); });
+} else heroGrid();
 
 /* ---------- 4. Apparitions en cascade et compteurs ---------- */
 if (animated) {
@@ -158,7 +182,13 @@ if (motion) setInterval(() => {
 
 const shopNode = $('[data-shop]');
 let shop = null;
-const loadShop = () => shop ||= import('./shop.js?v=dev').then(m => { m.mountShop(shopNode); return m; });
+const loadShop = () => shop ||= import('./shop.js?v=dev')
+  .then(m => { m.mountShop(shopNode); return m; })
+  .catch(err => {   // réseau coupé : on le dit, et on réessaiera au prochain clic
+    shop = null;
+    shopNode.innerHTML = '<p class="shop-note">La boutique n\'a pas pu se charger. Vérifie ta connexion, puis touche «&nbsp;Commander&nbsp;» pour réessayer.</p>';
+    throw err;
+  });
 new IntersectionObserver(([e], io) => { if (e.isIntersecting) { io.disconnect(); loadShop(); } }, { rootMargin: '1200px 0px' }).observe(shopNode);
 for (const link of $$('a[href="#acheter"]')) link.addEventListener('click', loadShop);
 for (const btn of $$('[data-pick]')) btn.addEventListener('click', () => loadShop().then(m => m.pickSize(btn.dataset.pick)));

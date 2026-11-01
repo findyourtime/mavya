@@ -87,7 +87,7 @@ h3 { font-size: 1.14rem; line-height: 1.25; letter-spacing: -.015em; }
   background: var(--neon); filter: blur(14px); opacity: .6; transition: opacity .3s var(--ease);
 }
 .btn--ghost { background: rgba(255, 255, 255, .04); color: var(--ink); border-color: var(--line-2); }
-.btn--small { min-height: 40px; padding: 0 18px; font-size: .9rem; }
+.btn--small { min-height: 44px; padding: 0 18px; font-size: .9rem; }
 .btn--block { width: 100%; }
 .btn:active { transform: scale(.97); }
 
@@ -178,14 +178,22 @@ h3 { font-size: 1.14rem; line-height: 1.25; letter-spacing: -.015em; }
 /* ---------- Intro 3D : le rideau se construit, s'allume, puis le logo apparaît ---------- */
 /* sans intro 3D (mouvement réduit, pas de WebGL 2), les deux enveloppes s'effacent et le hero reste tel quel */
 .hero__track, .hero__stage { display: contents; }
-.hero__3d, .intro__captions, .intro__logo, .intro__hint { display: none; }
+.scene3d, .intro__kicker, .intro__captions, .intro__logo, .intro__hint { display: none; }
+/* le rideau 3D vit dans un calque fixe, derrière tout le contenu : il descend de l'intro vers l'histoire,
+   puis jusque dans la fenêtre de la maison (que l'on voit à travers la vitre, devenue transparente) */
+.intro-3d .scene3d { display: block; position: fixed; z-index: -1; left: 0; top: 0; width: 100%; height: 100vh; height: 100lvh; pointer-events: none; }
+.intro-3d .story__visual .led-frame, .intro-3d .street__led { visibility: hidden; }
+.intro-3d .street__scene { background: none; }
+.intro-3d .street__photo, .intro-3d .street__night, .intro-3d .street__light { clip-path: var(--hole); }   /* vitre découpée : on voit le rideau derrière */
+.intro-3d .street__photo.street__pane { display: block; clip-path: var(--glass); opacity: calc(.8 * (1 - var(--night))); }   /* le reflet de la vitre, le jour */
 .intro-3d .hero { display: block; min-height: 0; padding: 0; overflow: visible; }
-.intro-3d .hero::before, .intro-3d .hero__visual, .intro-3d .hero .eyebrow, .intro-3d .hero__lead, .intro-3d .scroll-hint { display: none; }
+.intro-3d .hero::before, .intro-3d .hero__visual, .intro-3d .hero__text .eyebrow, .intro-3d .hero__lead, .intro-3d .scroll-hint { display: none; }
+/* dès le premier écran : ce qu'on vend et à quel prix */
+.intro-3d .intro__kicker { display: flex; position: absolute; z-index: 1; left: var(--gutter); right: var(--gutter); top: calc(var(--header-h) + env(safe-area-inset-top) + 10px); justify-content: center; text-align: center; color: var(--ink); letter-spacing: .14em; white-space: nowrap; }
 .intro-3d .hero__track { display: block; height: 330vh; height: 330svh; }
-.intro-3d .hero__stage { display: block; position: sticky; top: 0; height: 100vh; height: 100svh; overflow: clip; background: var(--bg); }
-.intro-3d .hero__3d { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+.intro-3d .hero__stage { display: block; position: sticky; top: 0; height: 100vh; height: 100svh; overflow: clip; }
 .intro-3d .intro__captions {
-  display: block; position: absolute; z-index: 1; left: var(--gutter); right: var(--gutter); top: calc(var(--header-h) + env(safe-area-inset-top) + 14px);
+  display: block; position: absolute; z-index: 1; left: var(--gutter); right: var(--gutter); top: calc(var(--header-h) + env(safe-area-inset-top) + 44px);
   margin: 0; padding: 0; list-style: none; text-align: center; pointer-events: none;
 }
 .intro__captions li { position: absolute; inset: 0 0 auto; opacity: 0; font: 700 clamp(1.6rem, 7.4vw, 3.1rem)/1.06 var(--f-display); letter-spacing: -.035em; text-wrap: balance; text-shadow: 0 2px 24px rgba(5, 6, 10, .8); }
@@ -205,6 +213,7 @@ h3 { font-size: 1.14rem; line-height: 1.25; letter-spacing: -.015em; }
 .intro__hint::after { content: ""; width: 9px; height: 9px; border-right: 2px solid var(--cyan); border-bottom: 2px solid var(--cyan); rotate: 45deg; animation: nudge 1.6s ease-in-out infinite; }
 @media (min-width: 900px) {
   .intro-3d .intro__captions { left: max(var(--gutter), 50% - 600px + var(--gutter)); right: auto; top: 40%; width: min(42%, 540px); text-align: left; }
+  .intro-3d .intro__kicker { left: max(var(--gutter), 50% - 600px + var(--gutter)); right: auto; top: calc(40% - 44px); justify-content: flex-start; }
   .intro-3d .hero__in { top: 0; bottom: 0; display: grid; align-content: center; grid-template-columns: minmax(0, 540px); }
   .intro-3d .intro__logo { justify-content: flex-start; font-size: clamp(4rem, 8vw, 7.4rem); }
   .intro-3d .hero__title { font-size: clamp(2rem, 3.2vw, 3.2rem); }
@@ -241,8 +250,8 @@ html:not(.js) .story__step { display: block; margin-bottom: 28px; }
 .motion .eq i:nth-child(2) { animation-delay: -.3s; } .motion .eq i:nth-child(3) { animation-delay: -.6s; } .motion .eq i:nth-child(4) { animation-delay: -.15s; }
 @keyframes eq { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
 .story__nav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: min(100% - 100px, 340px); }   /* place des boutons flottants */
-.story__dot { position: relative; height: 40px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink-3); font: 500 .7rem/1 var(--f-body); }
-.story__dot::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 3px; background: rgba(255, 255, 255, .16); transition: background-color .3s; }
+.story__dot { position: relative; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink-3); font: 500 .7rem/1 var(--f-body); }
+.story__dot::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 3px; background: rgba(255, 255, 255, .36); transition: background-color .3s; }
 .story__dot[aria-current="step"]::before { background: var(--neon); box-shadow: 0 0 12px rgba(45, 226, 255, .45); }
 @media (min-width: 900px) {
   .story__in { grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); grid-template-areas: "visual captions" "visual nav"; align-content: center; column-gap: clamp(40px, 6vw, 96px); row-gap: 28px; justify-items: start; text-align: left; }
@@ -258,26 +267,34 @@ html:not(.js) .story__step { display: block; margin-bottom: 28px; }
 /* ---------- Vu de la rue ---------- */
 .motion .street__track { height: 260vh; height: 260svh; }
 .street__in { display: grid; gap: clamp(14px, 2.2svh, 22px); justify-items: center; text-align: center; }
+/* maison réaliste (photo) : la nuit tombe sur la même photo ; la baie vitrée (--win-*) reçoit le rideau */
 .street__scene {
   --night: 1; --glow: 1;
-  position: relative; width: min(88vw, 46svh, 600px); aspect-ratio: 400 / 420;
+  --win-x: 34.1%; --win-y: 41.8%; --win-w: 33.1%; --win-h: 39.6%;
+  --hole: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, var(--win-x) var(--win-y), calc(var(--win-x) + var(--win-w)) var(--win-y), calc(var(--win-x) + var(--win-w)) calc(var(--win-y) + var(--win-h)), var(--win-x) calc(var(--win-y) + var(--win-h)), var(--win-x) var(--win-y));
+  --glass: inset(var(--win-y) calc(100% - var(--win-x) - var(--win-w)) calc(100% - var(--win-y) - var(--win-h)) var(--win-x));
+  position: relative; width: min(88vw, 55svh, 640px); aspect-ratio: 6 / 5;
   border-radius: 26px; overflow: hidden; border: 1px solid var(--line); background: #070A14;
   box-shadow: 0 40px 90px -40px rgba(0, 0, 0, .9);
 }
-.street__scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.street__scene .d { opacity: calc(1 - var(--night)); }
-.street__scene .n { opacity: var(--night); }
-.street__scene .gl { opacity: var(--glow); }
-.street__scene .sun { transform: translateY(calc(var(--night) * 130px)); }
-.street__led { position: absolute; left: 33%; top: 53.81%; width: 34%; height: 32.38%; }
+.street__photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.street__pane { display: none; }
+.street__night { position: absolute; inset: 0; opacity: var(--night); }
+.street__light {   /* lumière du rideau sur la façade et sur la neige */
+  position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: var(--glow);
+  background:
+    radial-gradient(calc(var(--win-w) * .95) calc(var(--win-h) * .85) at calc(var(--win-x) + var(--win-w) / 2) calc(var(--win-y) + var(--win-h) / 2), rgba(124, 203, 255, .3), rgba(196, 107, 255, .12) 55%, transparent 76%),
+    radial-gradient(calc(var(--win-w) * 1.2) 14% at calc(var(--win-x) + var(--win-w) / 2) 90%, rgba(255, 184, 107, .5), rgba(255, 79, 180, .18) 50%, transparent 76%);
+}
+.street__led { position: absolute; left: var(--win-x); top: var(--win-y); width: var(--win-w); height: var(--win-h); }
 .street__switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: var(--r-pill); border: 1px solid var(--line-2); background: rgba(255, 255, 255, .03); }
-.street__switch button { min-width: 88px; min-height: 36px; padding: 0 16px; border: 0; border-radius: var(--r-pill); background: none; color: var(--ink-2); font: 600 .85rem/1 var(--f-body); cursor: pointer; transition: background-color .3s, color .3s; }
+.street__switch button { min-width: 88px; min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--r-pill); background: none; color: var(--ink-2); font: 600 .85rem/1 var(--f-body); cursor: pointer; transition: background-color .3s, color .3s; }
 .street__switch button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .street__caption { max-width: 32rem; color: var(--ink-2); font-size: .98rem; }
 @media (max-height: 700px) and (max-width: 899px) { .motion .street__caption { display: none; } }
 @media (min-width: 900px) {
   .street__in { grid-template-columns: minmax(0, .9fr) minmax(0, 1fr); grid-template-areas: "switch scene" "caption scene"; align-content: center; column-gap: clamp(40px, 6vw, 96px); row-gap: 24px; justify-items: start; text-align: left; }
-  .street__scene { grid-area: scene; width: min(100%, 70vh, 600px); justify-self: end; }
+  .street__scene { grid-area: scene; width: min(100%, 80vh, 680px); justify-self: end; }
   .street__switch { grid-area: switch; align-self: end; }
   .street__caption { grid-area: caption; align-self: start; }
 }
@@ -334,6 +351,7 @@ html:not(.js) .story__step { display: block; margin-bottom: 28px; }
   background: radial-gradient(80% 60% at 0% 0%, rgba(45, 226, 255, .08), transparent 60%), radial-gradient(70% 60% at 100% 100%, rgba(255, 61, 216, .08), transparent 60%), var(--bg-1);
 }
 .buy__visual { display: grid; place-items: center; padding: 26px 26px 0; }
+@media (max-width: 899px) { .buy__visual { order: 1; padding: 0 26px 26px; } }   /* sur mobile, prix et bouton d'achat d'abord */
 .buy__visual .led-frame { width: min(100%, 360px); }
 .buy__panel { display: grid; gap: 18px; padding: 26px 22px 24px; }
 .buy__panel h2 { font-size: clamp(1.9rem, 7vw, 3rem); }
