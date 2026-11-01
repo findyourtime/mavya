@@ -175,6 +175,41 @@ h3 { font-size: 1.14rem; line-height: 1.25; letter-spacing: -.015em; }
 .motion .hero__visual { animation: fade 1.4s ease both; }
 .motion .scroll-hint::after { animation: nudge 1.8s ease-in-out infinite; }
 
+/* ---------- Intro 3D : le rideau se construit, s'allume, puis le logo apparaît ---------- */
+/* sans intro 3D (mouvement réduit, pas de WebGL 2), les deux enveloppes s'effacent et le hero reste tel quel */
+.hero__track, .hero__stage { display: contents; }
+.hero__3d, .intro__captions, .intro__logo, .intro__hint { display: none; }
+.intro-3d .hero { display: block; min-height: 0; padding: 0; overflow: visible; }
+.intro-3d .hero::before, .intro-3d .hero__visual, .intro-3d .hero .eyebrow, .intro-3d .hero__lead, .intro-3d .scroll-hint { display: none; }
+.intro-3d .hero__track { display: block; height: 330vh; height: 330svh; }
+.intro-3d .hero__stage { display: block; position: sticky; top: 0; height: 100vh; height: 100svh; overflow: clip; background: var(--bg); }
+.intro-3d .hero__3d { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+.intro-3d .intro__captions {
+  display: block; position: absolute; z-index: 1; left: var(--gutter); right: var(--gutter); top: calc(var(--header-h) + env(safe-area-inset-top) + 14px);
+  margin: 0; padding: 0; list-style: none; text-align: center; pointer-events: none;
+}
+.intro__captions li { position: absolute; inset: 0 0 auto; opacity: 0; font: 700 clamp(1.6rem, 7.4vw, 3.1rem)/1.06 var(--f-display); letter-spacing: -.035em; text-wrap: balance; text-shadow: 0 2px 24px rgba(5, 6, 10, .8); }
+.intro__captions li:first-child { opacity: 1; }
+.intro__captions em { font-style: normal; background: var(--neon); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.intro-3d .hero__in { position: absolute; z-index: 1; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 18px); }
+.intro-3d .hero__text { gap: 12px; }
+.intro-3d .hero__text > * { animation: none; }
+.intro-3d .intro__logo { display: flex; justify-content: center; gap: .1em; font: 700 clamp(3.2rem, 17vw, 7.4rem)/.86 var(--f-display); letter-spacing: 0; }
+.intro__logo span { opacity: var(--k, 0); transform: translateY(calc((1 - var(--k, 0)) * .3em)); filter: blur(calc((1 - var(--k, 0)) * 12px)); text-shadow: 0 0 .3em rgba(143, 123, 255, .65), 0 0 .08em rgba(45, 226, 255, .5); }
+.intro-3d .hero__title { font-size: clamp(1.3rem, 5.8vw, 2.5rem); }
+.intro-3d .hero__title, .intro-3d .hero__cta { opacity: var(--end, 0); transform: translateY(calc((1 - var(--end, 0)) * 16px)); }
+.intro-3d .intro__hint {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 30px); translate: -50% 0;
+  opacity: 0; color: var(--ink-2); font: 500 .74rem/1 var(--f-display); letter-spacing: .2em; text-transform: uppercase; pointer-events: none;
+}
+.intro__hint::after { content: ""; width: 9px; height: 9px; border-right: 2px solid var(--cyan); border-bottom: 2px solid var(--cyan); rotate: 45deg; animation: nudge 1.6s ease-in-out infinite; }
+@media (min-width: 900px) {
+  .intro-3d .intro__captions { left: max(var(--gutter), 50% - 600px + var(--gutter)); right: auto; top: 40%; width: min(42%, 540px); text-align: left; }
+  .intro-3d .hero__in { top: 0; bottom: 0; display: grid; align-content: center; grid-template-columns: minmax(0, 540px); }
+  .intro-3d .intro__logo { justify-content: flex-start; font-size: clamp(4rem, 8vw, 7.4rem); }
+  .intro-3d .hero__title { font-size: clamp(2rem, 3.2vw, 3.2rem); }
+}
+
 /* ---------- Histoire au défilement (grille épinglée) ---------- */
 .story { position: relative; }
 .pin-head { display: grid; gap: 14px; justify-items: center; padding-top: clamp(72px, 12vw, 132px); text-align: center; }

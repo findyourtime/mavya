@@ -1,4 +1,4 @@
-// main.js — Page d'accueil MAVYA : grilles LED, histoire au défilement, « Vu de la rue »,
+// main.js — Page d'accueil MAVYA : intro 3D, grilles LED, histoire au défilement, « Vu de la rue »,
 // apparitions et compteurs (GSAP + ScrollTrigger), défilement fluide (Lenis),
 // barre d'achat mobile et chargement différé de la boutique Shopify.
 
@@ -46,10 +46,19 @@ document.addEventListener('click', e => {
   target.focus({ preventScroll: true });
 });
 
-/* ---------- 1. Hero : la grille s'allume point par point et dessine un sapin ---------- */
-const hero = new LedGrid($('[data-led="hero"]'));
-if (motion) setTimeout(() => hero.show(sapin(), { order: 'up', spread: 1.7, duration: .3, flash: 1 }), 450);
-else hero.show(sapin(), { instant: true });
+/* ---------- 1. Hero : intro 3D (WebGL 2) ; sinon la grille 2D s'allume et dessine un sapin ---------- */
+function heroGrid() {
+  root.classList.remove('intro-3d');
+  const hero = new LedGrid($('[data-led="hero"]'));
+  if (motion) setTimeout(() => hero.show(sapin(), { order: 'up', spread: 1.7, duration: .3, flash: 1 }), 450);
+  else hero.show(sapin(), { instant: true });
+}
+if (animated && root.classList.contains('intro-3d')) {
+  const fallback = () => { heroGrid(); ScrollTrigger.refresh(); };
+  import('./intro3d.js?v=dev')
+    .then(m => m.startIntro({ stage: $('.hero__stage'), gsap, ScrollTrigger, onFail: fallback }))
+    .catch(err => { console.error(err); fallback(); });
+} else heroGrid();
 
 /* ---------- 2. Histoire : un motif par étape, grille épinglée pendant le défilement ---------- */
 const story = $('[data-story]');

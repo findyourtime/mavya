@@ -2,7 +2,8 @@
 
 Site de MAVYA : rideau lumineux LED connecté à accrocher derrière une fenêtre
 (« Ta fenêtre devient un écran lumineux. »). Direction visuelle futuriste, premium et
-nocturne ; aucun visuel importé : tout est dessiné en canvas sur une grille de 20 × 20 LED.
+nocturne ; aucun visuel importé : tout est dessiné en code, la grille de 20 × 20 LED en canvas
+et l'intro de l'accueil en 3D temps réel (WebGL 2, sans bibliothèque).
 
 ## Structure
 
@@ -13,6 +14,7 @@ cgv.html
 confidentialite.html
 livraison-retours.html
 assets/css/main.css        Styles communs, mobile d'abord
+assets/js/intro3d.js       Intro 3D : le plan se trace, le rideau se monte, s'allume, puis le logo apparaît
 assets/js/led-grid.js      Moteur de la grille LED : halos, scènes animées, transitions point par point
 assets/js/patterns.js      Pixel-arts (sapin, Père Noël, cœurs) et polices lumineuses
 assets/js/main.js          Animations au défilement (GSAP + ScrollTrigger, Lenis), barre d'achat mobile
@@ -50,8 +52,13 @@ perl tools/serve.pl
 ```
 
 puis ouvrir http://localhost:4321/. Le mouvement réduit (réglage d'accessibilité du système)
-coupe toutes les animations : la grille affiche alors des images fixes et l'histoire devient
-une série d'onglets.
+coupe toutes les animations : l'intro 3D laisse la place au hero classique, la grille affiche
+des images fixes et l'histoire devient une série d'onglets. Sans WebGL 2, seule l'intro 3D
+est remplacée.
+
+L'intro 3D suit une timeline de 0 à 1 : le début (plan de la fenêtre, tringle) se joue seul au
+chargement, la suite avance avec le défilement ; légendes et plans de caméra sont réglés en
+tête de `intro3d.js`.
 
 ## Cookies et pixel publicitaire
 
