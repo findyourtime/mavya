@@ -128,7 +128,7 @@ export const MAVYA_STILL = (() => {
   return rows.map(r => r.join(''));
 })();
 
-/** Cœur procédural pour une grille n × n (aperçus des deux tailles). */
+/** Cœur procédural pour une grille n × n (aperçu de la carte « Dimensions »). */
 export function heartRows(n) {
   return Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => {
     const x = ((c + .5) / n - .5) * 2.75, y = (.5 - (r + .5) / n) * 2.75 + .2;

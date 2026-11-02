@@ -4,16 +4,13 @@
 const SHOP = {
   domain: 'eqe0ex-41.myshopify.com',
   storefrontAccessToken: '9d3867e5c67024fc1625e8ffacd9ff14',
-  productId: '[ID_PRODUIT]',   // ID numérique du produit dans Shopify (ex. 15817235497300)
+  productId: '15934071963988',   // ID numérique du produit dans Shopify : le rideau 2 m × 2 m, 400 LED (une seule variante)
 };
 
 const SDK = {
   src: 'https://unpkg.com/@shopify/buy-button-js@3.0.6/dist/buybutton.min.js',
   integrity: 'sha384-q+SpzFSMkp3MVfABVZexbjLONntqR3CvcACav++STehX0NF2Nm/WripdSbYcqcqY',
 };
-
-/* valeurs de l'option « taille » reconnues quel que soit leur libellé exact dans Shopify */
-const SIZES = { '1-6': /1[,.]6|160|256/, '2': /\b2\s*(m|×|x)|200|400/i };
 
 const OPTIONS = {
   product: {
@@ -51,7 +48,6 @@ const OPTIONS = {
 };
 
 let node = null;
-let wanted = null;
 
 const note = html => { node.innerHTML = `<p class="shop-note">${html}</p>`; };
 
@@ -64,12 +60,9 @@ function loadSdk() {
   });
 }
 
+/** Monte le bouton d'achat : prix et « Ajouter au panier ». Une seule variante, donc pas de choix de taille. */
 export function mountShop(el, productId = SHOP.productId) {
   node = el;
-  if (!/^\d+$/.test(productId)) {
-    note('Bouton d\'achat : renseigne <code>[ID_PRODUIT]</code> dans <code>assets/js/shop.js</code>.');
-    return Promise.resolve(false);
-  }
   return loadSdk()
     .then(() => {
       const client = ShopifyBuy.buildClient({ domain: SHOP.domain, storefrontAccessToken: SHOP.storefrontAccessToken });
@@ -77,29 +70,14 @@ export function mountShop(el, productId = SHOP.productId) {
       return ShopifyBuy.UI.init(client).createComponent('product', {
         id: productId,
         node,
-        moneyFormat: '%7B%7Bamount_with_comma_separator%7D%7D%C2%A0%E2%82%AC',   // 44,90 €
+        moneyFormat: '%7B%7Bamount_with_comma_separator%7D%7D%C2%A0%E2%82%AC',   // 59,90 €
         options: OPTIONS,
       });
     })
-    .then(() => { if (wanted) pickSize(wanted); return true; })
+    .then(() => true)
     .catch(err => {
       console.warn('Boutique indisponible', err);
       note('La boutique n\'a pas pu se charger. Recharge la page, ou écris-nous à <a href="mailto:[EMAIL]">[EMAIL]</a>.');
       return false;
     });
-}
-
-/** Présélectionne une taille (« 1-6 » ou « 2 ») dans le sélecteur de variante. */
-export function pickSize(size) {
-  wanted = size;
-  const test = SIZES[size];
-  for (const select of node?.querySelectorAll('select') ?? []) {
-    const option = [...select.options].find(o => test?.test(o.value));
-    if (!option) continue;
-    if (select.value !== option.value) {
-      select.value = option.value;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    return;
-  }
 }

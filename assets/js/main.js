@@ -184,7 +184,7 @@ if (animated) {
   }
 }
 
-/* ---------- 5. Tailles : aperçus 16 × 16 et 20 × 20 à la même échelle ---------- */
+/* ---------- 5. Dimensions : aperçu de la grille 20 × 20 ---------- */
 for (const canvas of $$('[data-led-size]')) {
   const n = +canvas.dataset.ledSize;
   new LedGrid(canvas, { cols: n, rows: n, shimmer: false }).show(new Pattern(heartRows(n)), { instant: true });
@@ -210,7 +210,6 @@ const loadShop = () => shop ||= import('./shop.js?v=dev')
   });
 new IntersectionObserver(([e], io) => { if (e.isIntersecting) { io.disconnect(); loadShop(); } }, { rootMargin: '1200px 0px' }).observe(shopNode);
 for (const link of $$('a[href="#acheter"]')) link.addEventListener('click', loadShop);
-for (const btn of $$('[data-pick]')) btn.addEventListener('click', () => loadShop().then(m => m.pickSize(btn.dataset.pick)));
 
 /* ---------- Barre d'achat mobile : visible après le hero, masquée près de la commande ---------- */
 const bar = $('[data-buybar]');

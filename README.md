@@ -10,7 +10,7 @@ façade de « Vu de la rue », générée par IA, de jour (`assets/img/maison.jp
 ## Structure
 
 ```
-index.html                 La page : hero, histoire au défilement, « Vu de la rue », fonctionnalités, tailles, commande, FAQ
+index.html                 La page : hero, histoire au défilement, « Vu de la rue », fonctionnalités, dimensions, commande, FAQ
 mentions-legales.html      Pages légales (même design, sans JavaScript)
 cgv.html
 confidentialite.html
@@ -37,7 +37,6 @@ Lenis 1.3.27 et Shopify Buy Button JS 3.0.6 (unpkg, chargé seulement à l'appro
 
 Tous les champs à compléter sont entre crochets :
 
-- `[ID_PRODUIT]` dans `assets/js/shop.js` (ID numérique du produit dans Shopify) ;
 - `[NOM PRÉNOM]`, `[ADRESSE]`, `[EMAIL]`, `[TÉLÉPHONE]`, `[MENTION TVA …]`, `[MÉDIATEUR]`,
   `[ADRESSE RETOUR]`, `[en cours d'immatriculation]` dans les pages légales et le pied de page ;
 - `[DATE LIMITE]` (commande avant Noël) sur l'accueil, la FAQ, les CGV et Livraison & retours ;
@@ -45,8 +44,9 @@ Tous les champs à compléter sont entre crochets :
 
 Pour tous les retrouver : `grep -rn "\[[A-Z]" *.html assets/js`
 
-Les prix affichés en dur (44,90 € et 54,90 €, sur l'accueil et dans les CGV) doivent rester
-identiques à ceux de Shopify ; le prix de la variante choisie, lui, vient directement de Shopify.
+Un seul format est en vente : 2 m × 2 m, 400 LED, produit Shopify n° 15934071963988 (une seule
+variante). Le prix affiché en dur (59,90 €, sur l'accueil, dans ses métadonnées et dans les CGV)
+doit rester identique à celui de Shopify ; le bouton d'achat, lui, affiche directement le prix Shopify.
 
 ## Aperçu local
 
