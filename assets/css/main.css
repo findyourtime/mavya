@@ -184,7 +184,7 @@ h3 { font-size: 1.14rem; line-height: 1.25; letter-spacing: -.015em; }
 .intro-3d .scene3d { display: block; position: fixed; z-index: -1; left: 0; top: 0; width: 100%; height: 100vh; height: 100lvh; pointer-events: none; }
 .intro-3d .story__visual .led-frame, .intro-3d .street__led { visibility: hidden; }
 .intro-3d .street__scene { background: none; }
-.intro-3d .street__photo, .intro-3d .street__night, .intro-3d .street__light { clip-path: var(--hole); }   /* vitre découpée : on voit le rideau derrière */
+.intro-3d .street__photo, .intro-3d .street__night, .intro-3d .street__light, .intro-3d .street__scene::after { clip-path: var(--hole); }   /* vitre découpée : on voit le rideau derrière */
 .intro-3d .street__photo.street__pane { display: block; clip-path: var(--glass); opacity: calc(.8 * (1 - var(--night))); }   /* le reflet de la vitre, le jour */
 .intro-3d .hero { display: block; min-height: 0; padding: 0; overflow: visible; }
 .intro-3d .hero::before, .intro-3d .hero__visual, .intro-3d .hero__text .eyebrow, .intro-3d .hero__lead, .intro-3d .scroll-hint { display: none; }
@@ -222,13 +222,13 @@ h3 { font-size: 1.14rem; line-height: 1.25; letter-spacing: -.015em; }
 /* ---------- Histoire au défilement (grille épinglée) ---------- */
 .story { position: relative; }
 .pin-head { display: grid; gap: 14px; justify-items: center; padding-top: clamp(72px, 12vw, 132px); text-align: center; }
-.story__stage, .street__stage { padding: clamp(36px, 6vw, 64px) 0 clamp(80px, 12vw, 140px); }
+.story__stage { padding: clamp(36px, 6vw, 64px) 0 clamp(80px, 12vw, 140px); }
 .motion .story__track { height: calc(100vh + 5 * 72vh); height: calc(100svh + 5 * 72svh); }
-.motion .story__stage, .motion .street__stage {
+.motion .story__stage {
   position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-items: center; overflow: clip;
   padding: calc(var(--header-h-s) + 4px) 0 calc(env(safe-area-inset-bottom) + 92px);   /* en-tête réduit ; place de la barre d'achat */
 }
-@media (min-width: 900px) { .motion .story__stage, .motion .street__stage { padding-bottom: 24px; } }
+@media (min-width: 900px) { .motion .story__stage { padding-bottom: 24px; } }
 .story__in { display: grid; gap: clamp(14px, 2.4svh, 22px); justify-items: center; text-align: center; }
 .story__visual { width: min(76vw, 42svh, 560px); }
 .story__captions { position: relative; width: 100%; max-width: 30rem; }
@@ -264,18 +264,26 @@ html:not(.js) .story__step { display: block; margin-bottom: 28px; }
   .chips { justify-content: flex-start; }
 }
 
-/* ---------- Vu de la rue ---------- */
+/* ---------- Vu de la rue : la maison occupe tout l'écran ---------- */
 .motion .street__track { height: 260vh; height: 260svh; }
-.street__in { display: grid; gap: clamp(14px, 2.2svh, 22px); justify-items: center; text-align: center; }
-/* maison réaliste (photo) : la nuit tombe sur la même photo ; la baie vitrée (--win-*) reçoit le rideau */
+/* lvh : la photo couvre l'écran même quand le navigateur replie ses barres */
+.street__stage { position: relative; height: 100vh; height: 100lvh; overflow: clip; }
+.motion .street__stage { position: sticky; top: 0; }
+/* maison réaliste (photo) : la nuit tombe sur la même photo ; la vitre de la baie (--win-*) reçoit le rideau.
+   main.js la recalcule en pixels pour le recadrage « cover » de l'écran ; ces pourcentages valent pour un écran 16:9 */
 .street__scene {
   --night: 1; --glow: 1;
-  --win-x: 34.1%; --win-y: 41.8%; --win-w: 33.1%; --win-h: 39.6%;
+  --win-x: 39.26%; --win-y: 41.8%; --win-w: 22.32%; --win-h: 39.6%;
   --hole: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, var(--win-x) var(--win-y), calc(var(--win-x) + var(--win-w)) var(--win-y), calc(var(--win-x) + var(--win-w)) calc(var(--win-y) + var(--win-h)), var(--win-x) calc(var(--win-y) + var(--win-h)), var(--win-x) var(--win-y));
   --glass: inset(var(--win-y) calc(100% - var(--win-x) - var(--win-w)) calc(100% - var(--win-y) - var(--win-h)) var(--win-x));
-  position: relative; width: min(88vw, 55svh, 640px); aspect-ratio: 6 / 5;
-  border-radius: 26px; overflow: hidden; border: 1px solid var(--line); background: #070A14;
-  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, .9);
+  position: absolute; inset: 0; background: #070A14;
+  /* le haut de la photo sort de la nuit : le texte y reste lisible, et le rideau qui descend se voit au travers */
+  -webkit-mask-image: linear-gradient(transparent, rgba(0, 0, 0, .5) 22%, #000 38%);
+  mask-image: linear-gradient(transparent, rgba(0, 0, 0, .5) 22%, #000 38%);
+}
+.street__scene::after {   /* voile en bas : la photo se fond dans la page */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(transparent 82%, rgba(5, 6, 10, .75));
 }
 .street__photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .street__pane { display: none; }
@@ -284,19 +292,20 @@ html:not(.js) .story__step { display: block; margin-bottom: 28px; }
   position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: var(--glow);
   background:
     radial-gradient(calc(var(--win-w) * .95) calc(var(--win-h) * .85) at calc(var(--win-x) + var(--win-w) / 2) calc(var(--win-y) + var(--win-h) / 2), rgba(124, 203, 255, .3), rgba(196, 107, 255, .12) 55%, transparent 76%),
-    radial-gradient(calc(var(--win-w) * 1.2) 14% at calc(var(--win-x) + var(--win-w) / 2) 90%, rgba(255, 184, 107, .5), rgba(255, 79, 180, .18) 50%, transparent 76%);
+    radial-gradient(calc(var(--win-w) * 1.2) calc(var(--win-h) * .36) at calc(var(--win-x) + var(--win-w) / 2) calc(var(--win-y) + var(--win-h) * 1.22), rgba(255, 184, 107, .5), rgba(255, 79, 180, .18) 50%, transparent 76%);
 }
 .street__led { position: absolute; left: var(--win-x); top: var(--win-y); width: var(--win-w); height: var(--win-h); }
-.street__switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: var(--r-pill); border: 1px solid var(--line-2); background: rgba(255, 255, 255, .03); }
+/* légende et choix jour / nuit : au-dessus de la maison sur téléphone, en bas de l'écran sur ordinateur */
+.street__in { position: absolute; z-index: 1; left: 0; right: 0; top: calc(var(--header-h-s) + env(safe-area-inset-top) + 14px); display: grid; gap: 12px; justify-items: center; text-align: center; }
+.street__switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: var(--r-pill); border: 1px solid var(--line-2); background: rgba(5, 6, 10, .5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .street__switch button { min-width: 88px; min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--r-pill); background: none; color: var(--ink-2); font: 600 .85rem/1 var(--f-body); cursor: pointer; transition: background-color .3s, color .3s; }
 .street__switch button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.street__caption { max-width: 32rem; color: var(--ink-2); font-size: .98rem; }
-@media (max-height: 700px) and (max-width: 899px) { .motion .street__caption { display: none; } }
+.street__caption { max-width: 30rem; color: var(--ink); font-size: .98rem; text-shadow: 0 1px 14px rgba(5, 6, 10, .9); }
+@media (max-height: 620px) and (max-width: 899px) { .street__caption { display: none; } }
 @media (min-width: 900px) {
-  .street__in { grid-template-columns: minmax(0, .9fr) minmax(0, 1fr); grid-template-areas: "switch scene" "caption scene"; align-content: center; column-gap: clamp(40px, 6vw, 96px); row-gap: 24px; justify-items: start; text-align: left; }
-  .street__scene { grid-area: scene; width: min(100%, 80vh, 680px); justify-self: end; }
-  .street__switch { grid-area: switch; align-self: end; }
-  .street__caption { grid-area: caption; align-self: start; }
+  .street__scene::after { background: linear-gradient(transparent 72%, rgba(5, 6, 10, .9)); }
+  .street__in { top: auto; bottom: calc(var(--float-bottom) + 64px); display: flex; align-items: center; justify-content: space-between; gap: 40px; text-align: left; }   /* au-dessus des boutons flottants */
+  .street__caption { max-width: min(30rem, 33vw); font-size: 1.08rem; }   /* à gauche de la baie vitrée */
 }
 
 /* ---------- Caractéristiques ---------- */

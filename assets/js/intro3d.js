@@ -476,7 +476,10 @@ export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }
   }
   function shotAt(T, k1, k2, time) {
     if (k2 >= 1) return frameIn(liveRect(street.slot), CURTAIN);   // suit la fenêtre quand la rue défile
-    if (k2 > 0) return travel(frameIn(slots.story, SUBJECT), frameIn(slots.street, CURTAIN), k2);
+    if (k2 > 0) {   // dès que la fenêtre de la maison monte dans l'écran, le rideau la rejoint, puis monte avec elle
+      const pin = slots.street, y = liveRect(street.slot).y, lock = seg((screenH - y) / Math.max(1, screenH - pin.y), 0, .6);
+      return travel(frameIn(slots.story, SUBJECT), frameIn({ ...pin, y: mix(pin.y, y, lock) }, CURTAIN), Math.max(k2, lock));
+    }
     if (k1 >= 1) return frameIn(liveRect(story.slot), SUBJECT);
     if (k1 > 0) return travel(introShot(1, time), frameIn(slots.story, SUBJECT), k1);
     return introShot(T, time);
@@ -489,6 +492,48 @@ export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }
     eye[2] = s.d * Math.cos(az) * Math.cos(el);
     perspective(proj, canvas.width / canvas.height, s.cx, s.cy);
     multiply(vp, proj, lookAt(view, eye, target));
+  }
+
+  /* les fils sentent le curseur (ou le doigt) : en passant, il les entraîne, un appui les écarte ;
+     chaque fil, un pendule amorti accroché à la tringle, se balance puis revient */
+  const swing = new Float32Array(COLS), swingV = new Float32Array(COLS);   // angle (rad) et vitesse de chaque fil
+  const pointer = { x: 0, y: 0, on: false, poke: false }, before = { x: 0, y: 0, on: false };   // le curseur, et où il était à l'image précédente
+  const hand = { x: 0, y: 0 }, from = { x: 0, y: 0 };                                          // les mêmes, dans le plan du rideau
+  const listen = new AbortController(), opts = { passive: true, signal: listen.signal };
+  const point = (x, y, poke = false) => { pointer.x = x; pointer.y = y; pointer.on = true; pointer.poke ||= poke; };
+  addEventListener('pointermove', e => e.pointerType !== 'touch' && point(e.clientX, e.clientY), opts);
+  addEventListener('pointerdown', e => e.pointerType !== 'touch' && point(e.clientX, e.clientY, true), opts);
+  addEventListener('pointerout', e => { if (!e.relatedTarget && e.pointerType !== 'touch') pointer.on = false; }, opts);   // sorti de la fenêtre
+  addEventListener('touchstart', e => point(e.touches[0].clientX, e.touches[0].clientY, true), opts);
+  addEventListener('touchmove', e => point(e.touches[0].clientX, e.touches[0].clientY), opts);
+  for (const type of ['touchend', 'touchcancel']) addEventListener(type, e => { if (!e.touches.length) pointer.on = false; }, opts);
+  /** Point du plan du rideau (z = 0) sous le point (x, y) de l'écran, pour le plan de caméra en cours ; faux s'il n'y en a pas. */
+  function unproject(x, y, shot, out) {
+    const tan = Math.tan(FOV / 2), zc = norm(sub(eye, target)), xc = norm([zc[2], 0, -zc[0]]), yc = cross(zc, xc);
+    const ex = (x / screenW * 2 - 1 - shot.cx) * tan * canvas.width / canvas.height, ey = (1 - y / screenH * 2 - shot.cy) * tan;
+    const d = [0, 1, 2].map(c => xc[c] * ex + yc[c] * ey - zc[c]), t = -eye[2] / d[2];
+    out.x = eye[0] + d[0] * t; out.y = eye[1] + d[1] * t;
+    return t > 0 && t < 50;
+  }
+  function feel(dt, shot) {
+    // vitesse du curseur lui-même, mesurée avec la caméra de l'image : quand c'est le rideau qui défile sous un curseur immobile, rien ne bouge
+    const ok = pointer.on && unproject(pointer.x, pointer.y, shot, hand);
+    const vx = ok && before.on && dt > 0 && unproject(before.x, before.y, shot, from) ? (hand.x - from.x) / dt : 0;
+    before.x = pointer.x; before.y = pointer.y; before.on = ok;
+    const reach = ROD_Y - hand.y, touching = ok && reach > 0 && reach < STRAND_LEN + .06;   // hauteur du curseur sous la tringle
+    const follow = clamp(vx / Math.max(.3, reach), -1, 1);   // vitesse angulaire d'un fil entraîné à cette hauteur
+    const grip = Math.min(1, Math.abs(vx) * 2) * Math.min(1, dt * 20);   // immobile, le curseur ne retient pas les fils
+    for (let i = 0; i < COLS; i++) {
+      if (touching) {   // chaque fil n'est entraîné qu'au passage du curseur sur sa position de repos : il lui échappe ensuite
+        const off = X0 + i * PITCH - hand.x, w = Math.exp(-((off / .13) ** 2));
+        swingV[i] += (follow - swingV[i]) * w * grip;
+        if (pointer.poke) swingV[i] += Math.sign(off) * .55 * w;
+      }
+      const pull = (i ? swing[i - 1] : swing[i]) + (i < COLS - 1 ? swing[i + 1] : swing[i]) - 2 * swing[i];   // les voisins se frôlent
+      swingV[i] += (-16 * swing[i] - 1.7 * swingV[i] + 4 * pull) * dt;
+      swing[i] = clamp(swing[i] + swingV[i] * dt, -.4, .4);
+    }
+    pointer.poke = false;
   }
 
   /* état de la scène pour un instant T de la timeline */
@@ -529,7 +574,7 @@ export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }
     for (let i = 0; i < COLS; i++) {
       const start = .165 + i * .0062, x = lin(T, start, start + .075), L = STRAND_LEN * spring(x);
       const sway = (i % 2 ? 1 : -1) * .16 * Math.sin(x * 10) * Math.exp(-x * 4)
-        + (.004 * Math.sin(time * .9 + i * .7) + .07 * flutter * Math.sin(time * 5.5 + i * .55)) * Math.min(1, x * 3);
+        + (.004 * Math.sin(time * .9 + i * .7) + .07 * flutter * Math.sin(time * 5.5 + i * .55) + swing[i]) * Math.min(1, x * 3);
       const ax = X0 + i * PITCH, dx = Math.sin(sway), dy = -Math.cos(sway), clip = back(lin(T, start - .012, start + .02));
       compose(G.strands.inst, i * 20, ax + dx * L / 2, ROD_Y + dy * L / 2, 0, 0, 0, sway, L > 0 ? .0045 : 0, L, .0045);
       compose(G.clips.inst, i * 20, ax, ROD_Y, 0, 0, 0, Math.PI / 2, .021 * clip, .028 * clip, .021 * clip);
@@ -614,7 +659,6 @@ export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }
   const BG_RGB = hex('#05060A');
   const center = new Float32Array(4);
   function render(T, k1, k2, time, shot) {
-    place(shot);
     const share = scene(T, k1, k2, time);
     const W = canvas.width, H = canvas.height;
     gl.viewport(0, 0, W, H);
@@ -748,6 +792,8 @@ export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }
     const shot = shotAt(T, k1, k2, time);
     if (last) flutter = Math.min(1, flutter * Math.exp(-dt * 2.5) + (Math.abs(shot.cx - last.cx) + Math.abs(shot.cy - last.cy) + Math.abs(shot.d - last.d) / shot.d) * 2.5);
     last = shot;
+    place(shot);
+    feel(dt, shot);
     render(T, k1, k2, time, shot);
     overlay(T, auto < 1 ? 0 : clamp((time - autoDoneAt - .8) / .6) * (1 - lin(hero.progress, 0, .015)));
   }
@@ -759,6 +805,7 @@ export function startIntro({ stage, story, street, gsap, ScrollTrigger, onFail }
   canvas.addEventListener('webglcontextlost', e => {
     e.preventDefault();
     run(false);
+    listen.abort();
     for (const t of [hero, toStory, toStreet, range]) t.kill();
     onFail?.();
   }, { once: true });

@@ -63,9 +63,13 @@ L'intro 3D suit une timeline de 0 à 1 : le début (plan de la fenêtre, tringle
 chargement, la suite avance avec le défilement ; légendes et plans de caméra sont réglés en
 tête de `intro3d.js`. Le rideau 3D est dessiné dans un calque fixe derrière la page : après
 l'intro, il descend se poser dans l'histoire (il y affiche les motifs des étapes, calculés par
-`LedSource` dans `led-grid.js`), puis entre dans la baie vitrée de la maison « Vu de la rue » :
-la vitre est découpée dans la photo (`clip-path`, rectangle `--win-*` dans `main.css`), et son
-reflet ne s'efface qu'à la nuit tombée. Si la photo change, remesurer ce rectangle.
+`LedSource` dans `led-grid.js`), puis entre dans la baie vitrée de la maison « Vu de la rue »,
+qui occupe tout l'écran : la vitre est découpée dans la photo (`clip-path`) à l'emplacement donné
+par `data-window` sur `.street__scene` (`index.html`, en fractions de la photo), que `main.js`
+recadre en pixels comme la photo (`object-fit: cover`) ; son reflet ne s'efface qu'à la nuit
+tombée. Si la photo change, remesurer `data-window` et reporter sa taille (`width`, `height`).
+Partout, les fils du rideau 3D réagissent au curseur ou au doigt : un passage les entraîne, un
+appui les écarte (pendules amortis, fonction `feel` de `intro3d.js`).
 
 ## Cookies et pixel publicitaire
 

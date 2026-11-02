@@ -101,6 +101,20 @@ if (story) {
 const street = $('[data-street]');
 if (street) {
   const scene = $('.street__scene', street), buttons = $$('[data-time]', street);
+  /* la photo couvre tout l'écran (object-fit: cover) : la vitre de la baie est recadrée avec elle,
+     en pixels, pour que le rideau s'y pose exactement, quel que soit le format de l'écran */
+  const photo = $('.street__photo', scene), iw = +photo.getAttribute('width'), ih = +photo.getAttribute('height');
+  const [x0, y0, x1, y1] = scene.dataset.window.split(' ').map(Number);
+  const fitWindow = () => {
+    const w = scene.clientWidth, h = scene.clientHeight, k = Math.max(w / iw, h / ih);
+    const ox = (w - iw * k) / 2, oy = (h - ih * k) / 2, px = v => `${v.toFixed(1)}px`;
+    scene.style.setProperty('--win-x', px(ox + x0 * iw * k));
+    scene.style.setProperty('--win-y', px(oy + y0 * ih * k));
+    scene.style.setProperty('--win-w', px((x1 - x0) * iw * k));
+    scene.style.setProperty('--win-h', px((y1 - y0) * ih * k));
+  };
+  fitWindow();
+  new ResizeObserver(fitWindow).observe(scene);
   leds.street = display('street');
   leds.street.show(new Snow({ under: sapin(), ground: false, count: 12 }), { instant: true });
   const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -116,6 +130,11 @@ if (street) {
       onUpdate: self => set(self.progress),
     });
     set(0);
+    // légende et choix jour / nuit : quand la maison se pose, pas pendant que le rideau y descend
+    gsap.fromTo($('.street__in', street), { autoAlpha: 0, y: 14 }, {
+      autoAlpha: 1, y: 0, ease: 'none',
+      scrollTrigger: { trigger: $('.street__track', street), start: 'top 30%', end: 'top top', scrub: true },
+    });
     buttons.forEach(b => b.addEventListener('click', () => scrollToY(+b.dataset.time ? st.end - 2 : st.start + 2)));
   } else {
     set(1);

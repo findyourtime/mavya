@@ -213,21 +213,22 @@
       </header>
       <div class="street__track">
         <div class="street__stage">
+          <!-- la maison occupe tout l'écran ; data-window : la vitre de la baie, en fractions de la photo (x0 y0 x1 y1) -->
+          <div class="street__scene" role="img" data-window=".3926 .418 .6158 .814" aria-label="Une maison vue de la rue, avec une grande baie vitrée&nbsp;: de jour, la vitre paraît normale&nbsp;; la nuit, le rideau MAVYA s'allume derrière et affiche un sapin sous la neige.">
+            <img class="street__photo" src="assets/img/maison.jpg" alt="" width="1920" height="1080" loading="lazy" decoding="async">
+            <!-- nuit : la même maison photographiée de nuit ; lumière du rideau sur la façade et la neige -->
+            <div class="street__night" aria-hidden="true"><img class="street__photo" src="assets/img/maison-nuit.jpg" alt="" width="1920" height="1080" loading="lazy" decoding="async"></div>
+            <div class="street__light" aria-hidden="true"></div>
+            <!-- rideau 3D : la vitre de jour, par-dessus, s'efface à la nuit tombée -->
+            <img class="street__photo street__pane" src="assets/img/maison.jpg" alt="" width="1920" height="1080" loading="lazy" decoding="async">
+            <canvas class="led street__led" data-led="street" aria-hidden="true"></canvas>
+          </div>
           <div class="wrap street__in">
-            <div class="street__scene" role="img" aria-label="Une maison vue de la rue, avec une grande baie vitrée&nbsp;: de jour, la vitre paraît normale&nbsp;; la nuit, le rideau MAVYA s'allume derrière et affiche un sapin sous la neige.">
-              <img class="street__photo" src="assets/img/maison.jpg" alt="" width="1200" height="1000" loading="lazy" decoding="async">
-              <!-- nuit : la même maison photographiée de nuit ; lumière du rideau sur la façade et la neige -->
-              <div class="street__night" aria-hidden="true"><img class="street__photo" src="assets/img/maison-nuit.jpg" alt="" width="1200" height="1000" loading="lazy" decoding="async"></div>
-              <div class="street__light" aria-hidden="true"></div>
-              <!-- rideau 3D : la vitre de jour, par-dessus, s'efface à la nuit tombée -->
-              <img class="street__photo street__pane" src="assets/img/maison.jpg" alt="" width="1200" height="1000" loading="lazy" decoding="async">
-              <canvas class="led street__led" data-led="street" aria-hidden="true"></canvas>
-            </div>
+            <p class="street__caption">Accroché derrière la vitre, il se fait discret le jour. Le soir venu, ta fenêtre devient la plus belle de la rue.</p>
             <div class="street__switch" role="group" aria-label="Moment de la journée">
               <button type="button" data-time="0" aria-pressed="false">Jour</button>
               <button type="button" data-time="1" aria-pressed="true">Nuit</button>
             </div>
-            <p class="street__caption">Accroché derrière la vitre, il se fait discret le jour. Le soir venu, ta fenêtre devient la plus belle de la rue.</p>
           </div>
         </div>
       </div>
